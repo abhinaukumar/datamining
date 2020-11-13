@@ -23,8 +23,8 @@ if dump_hist==1:
 # Read patients.csv
 
 patients = pd.read_csv(os.path.join(args.path, 'patient.csv'))
-
-# Remove patients having age <= 18 and age >= 89.
+ 
+ # Remove patients having age <= 18 and age >= 89.
 patients = patients.loc[patients['age'] != '> 89']
 patients = patients.astype({'age': 'float'})
 patients = patients.loc[(patients['age'] > 18) & (patients['age'] < 89)]
@@ -63,9 +63,6 @@ if debug==1:
 	print("Reached 2")
 del nc
 new_nc = new_nc[new_nc['nursingchartcelltypevalname'].isin(filter_val)]
-#rows=new_nc.loc[new_nc.nursingchartcelltypevalname == "Temperature (F)" ]
-#new_nc.loc[rows, 'nursingchartvalue'] = ((new_nc[rows,'nursingchartvalue'] - 32) * (5 / 9))
-new_nc['nursingchartcelltypevalname'].replace({"Temperature (F)": "Temperature (C)"}, inplace=True)
 
 if debug==1:
 	print("Reached 3")
@@ -84,6 +81,9 @@ def check_itemvalue(df):
 
 new_nc=check_itemvalue(new_nc)
 
+rows=(new_nc.nursingchartcelltypevalname == 'Temperature (F)')
+new_nc.loc[rows,'nursingchartvalue'] = ((new_nc.loc[rows,'nursingchartvalue'] - 32) * (5 / 9))
+new_nc['nursingchartcelltypevalname'].replace({"Temperature (F)": "Temperature (C)"}, inplace=True)
 if debug==1:
 	print("Reached 4")
 def bin(df,x,label_groupby,col):
