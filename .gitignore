@@ -1,5 +1,9 @@
+# Ignore data files
+data/
+
 # Ignore temp directory
 temp/
+.vscode/
 
 # Ignore models directory
 models/
