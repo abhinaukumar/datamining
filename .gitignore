@@ -1,5 +1,9 @@
+# Ignore data files
+data/
+
 # Ignore temp directory
 temp/
+.vscode/
 
 ## Ignore VIM files. From Github's vim.gitignore
 # Swap

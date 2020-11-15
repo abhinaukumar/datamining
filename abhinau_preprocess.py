@@ -7,7 +7,8 @@ import argparse
 import progressbar
 
 parser = argparse.ArgumentParser(description='Code to preprocess data from the eICU database')
-parser.add_argument('--path', help='Path to eICU database', required=True, type=str)
+parser.add_argument('--path', default='/media/ztu/Data/eICU_Benchmark/eicu-collaborative-research-database-2.0',
+                    help='Path to eICU database', type=str)
 args = parser.parse_args()
 
 assert len(args.path) > 0, 'Empty path'
@@ -19,26 +20,47 @@ widgets = [
             ]
 
 # Read patients.csv
-patients = pd.read_csv(os.path.join(args.path, 'patient.csv'))
+patients = pd.read_csv(os.path.join(args.path, 'patient.csv'))  # (200859, 29)
 
-# Remove patients having age <= 18 and age >= 89.
-patients = patients.loc[patients['age'] != '> 89']
-patients = patients.astype({'age': 'float'})
-patients = patients.loc[(patients['age'] > 18) & (patients['age'] < 89)]
+# Filter patients 'Age' feature in patients.csv
+patients.loc[patients['age'] == '> 89', 'age'] = 90
+patients[['age']] = patients[['age']].fillna(-1)
+patients = patients.astype({'age': 'int'})
+patients = patients.loc[(patients['age'] >= 18) & (patients['age'] <= 89)]  # (193153, 29)
 
-# Remove patients having more than one visit.:w
-
+# Filter those having just one stay in unit
 id_counts = patients['uniquepid'].value_counts(ascending = True)
 single_visit_ids = id_counts[id_counts == 1].keys()
-patients = patients.loc[patients['uniquepid'].isin(single_visit_ids)]
+patients = patients.loc[patients['uniquepid'].isin(single_visit_ids)]  # (96212, 29)
 
-# Remove patients having invalid gender
-patients = patients.loc[patients['gender'] != 'Unknown'] # Removes records having unknown gender
-patients = patients.loc[patients['gender'].notnull()] # Removes records having NaN gender
+# Filter atients 'Gender' feature in patients.csv, convert to numbers
+gender_map = {'Female': 1, 'Male': 2, '': 0, 'NaN': 0, 'Unknown': 0, 'Other': 0}
+def transform_gender(gender_series):
+    global gender_map
+    return {'gender': gender_series.fillna('').apply(lambda s: gender_map[s] if s in gender_map else gender_map[''])}
+patients.update(transform_gender(patients.gender))  # (96212, 29) 
+
+# Convert 'Ethnicity' to numbers
+ethnicity_map = {'Asian': 1, 'African American': 2, 'Caucasian': 3, 'Hispanic': 4, 'Native American': 5, 'NaN': 0, '': 0}
+def transform_ethnicity(ethnicity_series):
+    global ethnicity_map
+    return {'ethnicity': ethnicity_series.fillna('').apply(lambda s: ethnicity_map[s] if s in ethnicity_map else ethnicity_map[''])}
+patients.update(transform_ethnicity(patients.ethnicity)) # (96212, 29) 
+
+# Filter 'Admission Diagnosis' features into numbers
+def transform_dx_into_id(df):
+    df.apacheadmissiondx.fillna('nodx', inplace=True)
+    dx_type = df.apacheadmissiondx.unique()
+    dict_dx_key = pd.factorize(dx_type)[1]
+    dict_dx_val = pd.factorize(dx_type)[0]
+    dictionary = dict(zip(dict_dx_key, dict_dx_val))
+    df['apacheadmissiondx'] = df['apacheadmissiondx'].map(dictionary)
+    return df
+patients = transform_dx_into_id(patients) # (96212, 29) 
 
 # Remove patients having invalid discharge status
 patients = patients.loc[patients['hospitaldischargestatus'].notnull()]
-patients = patients.loc[patients['unitdischargestatus'].notnull()]
+patients = patients.loc[patients['unitdischargestatus'].notnull()]  # (95333, 29)
 
 # Select unique stayids
 stayids = patients['patientunitstayid'].unique()
