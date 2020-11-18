@@ -877,33 +877,33 @@ patients.to_csv(os.path.join(args.output_dir, 'filtered_patient.csv'))
 del patients
 
 
-# print("reading lab table")
-#done lab = read_lab_table(args.eicu_dir)
-#done #break_up_lab_by_unit_stay(lab, args.output_dir, stayid=stay_id, verbose=1)
-#done for stayid in stayids:
-#done     # Get records corresponding to one unit stay ID
-#done     df = lab.loc[lab['patientunitstayid'] == stayid]
-#done 
-#done     # Write to CSV file. nurseCharting is too large to handle in full
-#done     df.to_csv(os.path.join(args.output_dir,'lab', str(stayid) + '.csv'))
-#done 
-#done     del df
-#done 
-#done del lab
+ print("reading lab table")
+ lab = read_lab_table(args.eicu_dir)
+ #break_up_lab_by_unit_stay(lab, args.output_dir, stayid=stay_id, verbose=1)
+ for stayid in stayids:
+     # Get records corresponding to one unit stay ID
+     df = lab.loc[lab['patientunitstayid'] == stayid]
+ 
+     # Write to CSV file. nurseCharting is too large to handle in full
+     df.to_csv(os.path.join(args.output_dir,'lab', str(stayid) + '.csv'))
+ 
+     del df
+ 
+ del lab
 
 print("reading nurseCharting table, might take some time")
-#done nc = read_nc_table(args.eicu_dir)
-#done #break_up_stays_by_unit_stay_nc(nc, args.output_dir, stayid=stay_id, verbose=1)
-#done for stayid in stayids:
-#done     # Get records corresponding to one unit stay ID
-#done     df = nc.loc[nc['patientunitstayid'] == stayid]
-#done 
-#done     # Write to CSV file. nurseCharting is too large to handle in full
-#done     df.to_csv(os.path.join(args.output_dir,'nc', str(stayid) + '.csv'))
-#done 
-#done     del df
-#done 
-#done del nc
+ nc = read_nc_table(args.eicu_dir)
+ #break_up_stays_by_unit_stay_nc(nc, args.output_dir, stayid=stay_id, verbose=1)
+ for stayid in stayids:
+     # Get records corresponding to one unit stay ID
+     df = nc.loc[nc['patientunitstayid'] == stayid]
+ 
+     # Write to CSV file. nurseCharting is too large to handle in full
+     df.to_csv(os.path.join(args.output_dir,'nc', str(stayid) + '.csv'))
+ 
+     del df
+ 
+ del nc
 
 #Write the timeseries data into folders
 #extract_time_series_from_subject(args.output_dir)
