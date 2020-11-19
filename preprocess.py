@@ -26,6 +26,7 @@ impute_values = {'Eyes': 4, 'GCS Total': 15, 'Heart Rate': 86, 'Motor': 6, 'Inva
 
 logfile = open(os.path.join('temp', 'proprocess.log'), 'w')
 
+'''
 # Read patients.csv
 patients = pd.read_csv(os.path.join(args.path, 'patient.csv'))
 
@@ -90,6 +91,12 @@ stayids = patients['patientunitstayid']
 
 patients.to_csv(os.path.join(args.path, 'filtered_patient.csv'))
 del patients
+'''
+
+patients = pd.read_csv(os.path.join(args.path, 'filtered_patient.csv'))
+stayids = patients['patientunitstayid']
+
+del patients
 
 # Read nursingChart.csv
 nursingchart = pd.read_csv(os.path.join(args.path, 'nurseCharting.csv.gz'), compression='gzip')
@@ -128,20 +135,22 @@ logfile.write('Unified features in nurseCharting\n')
 # Drop item label after unifying names
 nursingchart.drop(['itemlabel','nursingchartid'],axis=1,inplace=True)
 
-# Convert Fahrenheit to Celsius
-nursingchart[nursingchart['itemlabel'] == 'Temperature (F)', 'itemvalue'] = (nursingchart['itemvalue'] - 32)*(5/9)
-nursingchart = nursingchart.map({'Temperature (F)': 'Temperature (C)'})
-
-logfile.write('Converted Fahrenheit to Celsius in nurseCharting\n')
-
 # Converting key-value pairs to new columns
 nursingchart = nursingchart.pivot_table(index=['patientunitstayid','offset'], columns='itemname', values='itemvalue',aggfunc='first').reset_index()
+logfile.write('Converted key-value pairs to columns in nurseCharting\n')
+
+nursingchart['GCS Total'] = nursingchart['GCS Total'].map({'Unable to score due to medication': np.nan})
 
 logfile.write('Converted key-value pairs to columns in nurseCharting\n')
 
-# Casting columns to float
-float_columns = ['Invasive BP Diastolic', 'Invasive BP Systolic', 'Heart Rate', 'MAP (mmHg)', 'O2 Saturation', 'Respiratory Rate', 'Temperature (C)']
-nursingchart = nursingchart.astype(dict(float_columns, ['float']*len(float_columns)))
+# Cast table to float
+nursingchart = nursingchart.astype('float')
+
+# Convert Fahrenheit to Celsius
+nursingchart['Temperature (F)'] = (nursingchart['Temperature (F)'] - 32)*(5/9)
+nursingchart.rename(index=str, columns={'Temperature (F)': 'Temperature (C)'}, inplace=True)
+
+logfile.write('Converted Fahrenheit to Celsius in nurseCharting\n')
 
 # Clip values to range
 nursingchart_features = ['Invasive BP Diastolic', 'Invasive BP Systolic', 'Heart Rate', 'MAP (mmHg)', 'GCS Total', 'Verbal', 'Eyes', 'Motor', 'O2 Saturation', 'Respiratory Rate', 'Temperature (C)']
@@ -200,12 +209,11 @@ lab = lab.pivot_table(index=['patientunitstayid','offset'], columns='itemname', 
 logfile.write('Converted key-value pairs to columns in lab\n')
 
 # Casting columns to float
-float_columns = ['glucose', 'pH', 'FiO2']
-lab = lab.astype(dict(float_columns), ['float']*len(float_columns))
+lab = lab.astype('float')
 lab['FiO2'] = lab['FiO2']/100
 
 # Clip values to range
-lab_features = float_columns
+lab_features = ['glucose', 'pH', 'FiO2']
 lab_feature_ranges = [(33, 1200), (6.3, 10), (15, 110)]
 for feature, (minval, maxval) in zip(lab_features, lab_feature_ranges):
     lab[feature].clip(minval, maxval, inplace=True)
