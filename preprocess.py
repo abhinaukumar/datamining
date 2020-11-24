@@ -32,7 +32,7 @@ patients = pd.read_csv(os.path.join(args.path, 'patient.csv.gz'), compression='g
 logfile.write("patients has {} records\n".format(patients.shape[0]))
 
 # Only choose relevant columns
-patients = patients[['patientunitstayid', 'gender', 'age', 'ethnicity', 'apacheadmissiondx', 'admissionheight', 'admissionweight', 'dischargeweight', 'hospitaladmitoffset', 'hospitaldischargeoffset', 'uniquepid', 'hospitaldischargestatus', 'unitdischargestatus']]
+patients = patients[['patientunitstayid', 'gender', 'age', 'ethnicity', 'apacheadmissiondx', 'admissionheight', 'admissionweight', 'dischargeweight', 'hospitaladmitoffset', 'hospitaldischargeoffset', 'unitdischargeoffset', 'uniquepid', 'hospitaldischargestatus', 'unitdischargestatus']]
 
 # Filter patients by age
 patients = patients.loc[patients['age'] != '> 89']
@@ -79,11 +79,17 @@ patients['apacheadmissiondx'] = patients['apacheadmissiondx'].map(apacheadmissio
 
 logfile.write("patients has {} records after filtering by diagnosis\n".format(patients.shape[0]))
 
+# Using the average of admission and discharge weight wherever possible
+patients.loc[patients['dischargeweight'].notnull(), 'admissionweight'] = 0.5*(patients['admissionweight'] + patients['dischargeweight'])
+
 # Clip values to range
 patient_features = ['admissionheight', 'admissionweight']
 patient_feature_ranges = [(100, 240), (30, 250)]
 for feature, (minval, maxval) in zip(patient_features, patient_feature_ranges):
     patients[feature].clip(minval, maxval, inplace=True)
+
+# Drop unnecessary columns
+patients.drop(columns=['dischargeweight', 'hospitaladmitoffset', 'hospitaldischargeoffset'], inplace=True)
 
 # Select stayids
 stayids = patients['patientunitstayid']
@@ -220,10 +226,13 @@ for feature, (minval, maxval) in zip(lab_features, lab_feature_ranges):
 
 # Bin offsets into hours
 lab['offset'] = (lab['offset']/60).astype('int')
+
 # Impute values within offset by replacing NaN with mean over each column.
 lab.groupby(['patientunitstayid', 'offset']).apply(lambda x: x.fillna(x.mean()))
+
 # For each offset, only choose last value.
 lab.drop_duplicates(['patientunitstayid', 'offset'], keep='last', inplace=True)
+
 # Impute missing values with "typical values"
 lab.fillna(value=impute_values, inplace=True)
 
@@ -235,4 +244,29 @@ logfile.write('Wrote lab features to CSV\n')
 
 del lab
 
+# Combining all features
+patients = pd.read_csv(os.path.join(args.path, 'patient_features.csv.gz'), compression='gzip')
+nursingchart = pd.read_csv(os.path.join(args.path, 'nursingchart_features.csv.gz'), compression='gzip')
+lab = pd.read_csv(os.path.join(args.path, 'lab_features.csv.gz'), compression='gzip')
+
+temp = pd.merge(nc, lab, how='outer', on=['patientunitstayid', 'offset']).sort_values(by=['patientunitstayid', 'offset'])
+all_features = pd.merge(temp, patients, how='outer', on='patientunitstayid').sort_values(by=['patientunitstayid', 'offset'])
+
+# Impute missing values with "typical values"
+all_features.fillna(value=impute_values, inplace=True)
+
+# Filter by number of records
+all_features = all_features.groupby('patientunitstayid').filter(lambda x: (x.shape[0] >= 15 and x.shape[0] <= 200))
+
+# Compute RLOS
+all_features['rlos'] = all_features['unitdischargeoffset']/1440 - res['offset']/24
+
+# Only choose records having positive offsets and RLOS
+all_features = all_features[all_features['offset'] > 0]
+all_features = all_features[(all_features['unitdischargeoffset'] > 0) & (res['rlos'] > 0)]
+
+# Write features to CSV
+all_features.to_csv(os.path.join(args.path, 'eicu_features.csv.gz'), compression='gzip')
+
+logfile.write('Wrote all features to CSV\n')
 logfile.close()
