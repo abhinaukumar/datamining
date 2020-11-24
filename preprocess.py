@@ -24,11 +24,10 @@ impute_values = {'Eyes': 4, 'GCS Total': 15, 'Heart Rate': 86, 'Motor': 6, 'Inva
                      'Verbal': 5, 'glucose': 128, 'admissionweight': 81, 'Temperature (C)': 36,
                      'admissionheight': 170, "MAP (mmHg)": 77, "pH": 7.4, "FiO2": 0.21}
 
-logfile = open(os.path.join('temp', 'proprocess.log'), 'w')
+logfile = open(os.path.join('temp', 'preprocess.log'), 'w')
 
-'''
 # Read patients.csv
-patients = pd.read_csv(os.path.join(args.path, 'patient.csv'))
+patients = pd.read_csv(os.path.join(args.path, 'patient.csv.gz'), compression='gzip')
 
 logfile.write("patients has {} records\n".format(patients.shape[0]))
 
@@ -75,7 +74,7 @@ logfile.write("patients has {} records after filtering by ethnicity\n".format(pa
 # Convert diagnoses to numbers
 patients['apacheadmissiondx'].fillna('nodx', inplace=True)
 dx_vals, dx_keys = pd.factorize(patients['apacheadmissiondx'].unique())
-apacheadmissiondx_map = dict(zip(dx_vals, dx_keys))
+apacheadmissiondx_map = dict(zip(dx_keys, dx_vals))
 patients['apacheadmissiondx'] = patients['apacheadmissiondx'].map(apacheadmissiondx_map)
 
 logfile.write("patients has {} records after filtering by diagnosis\n".format(patients.shape[0]))
@@ -89,17 +88,18 @@ for feature, (minval, maxval) in zip(patient_features, patient_feature_ranges):
 # Select stayids
 stayids = patients['patientunitstayid']
 
-patients.to_csv(os.path.join(args.path, 'filtered_patient.csv'))
+patients.to_csv(os.path.join(args.path, 'patient_features.csv.gz'), compression='gzip')
 del patients
-'''
 
-patients = pd.read_csv(os.path.join(args.path, 'filtered_patient.csv'))
+'''
+patients = pd.read_csv(os.path.join(args.path, 'patient_features.csv.gz'), compression='gzip')
 stayids = patients['patientunitstayid']
 
 del patients
+'''
 
-# Read nursingChart.csv
-nursingchart = pd.read_csv(os.path.join(args.path, 'nurseCharting.csv.gz'), compression='gzip')
+# Read nurseCharting.csv
+nursingchart = pd.read_csv(os.path.join(args.path, 'nurseCharting.csv'))
 
 logfile.write('Loaded nurseCharting\n')
 
@@ -154,7 +154,7 @@ logfile.write('Converted Fahrenheit to Celsius in nurseCharting\n')
 
 # Clip values to range
 nursingchart_features = ['Invasive BP Diastolic', 'Invasive BP Systolic', 'Heart Rate', 'MAP (mmHg)', 'GCS Total', 'Verbal', 'Eyes', 'Motor', 'O2 Saturation', 'Respiratory Rate', 'Temperature (C)']
-nursingchart_feature_ranges = [(0, 375), (0, 375), (0, 350), (14, 330), (2, 16), (1, 5), (0, 5), (0, 6)]
+nursingchart_feature_ranges = [(0, 375), (0, 375), (0, 350), (14, 330), (2, 16), (1, 5), (0, 5), (0, 6), (0, 100), (0, 100), (26, 45)]
 for feature, (minval, maxval) in zip(nursingchart_features, nursingchart_feature_ranges):
     nursingchart[feature].clip(minval, maxval, inplace=True)
 
@@ -163,24 +163,24 @@ nursingchart['offset'] = (nursingchart['offset']/60).astype('int')
 # Impute values within offset by replacing NaN with mean over each column.
 nursingchart.groupby(['patientunitstayid', 'offset']).apply(lambda x: x.fillna(x.mean()))
 # For each offset, only choose last value.
-nursingchart.drop_duplicates('offset', keep='last', inplace=True)
+nursingchart.drop_duplicates(['patientunitstayid', 'offset'], keep='last', inplace=True)
 # Impute missing values with "typical values"
 nursingchart.fillna(value=impute_values, inplace=True)
 
 logfile.write('Binned and imputed nurseCharting features')
 
-nursingchart.to_csv(os.path.join(args.path, 'nursingchart_features.csv'))
+nursingchart.to_csv(os.path.join(args.path, 'nursingchart_features.csv.gz'), compression='gzip')
 
 logfile.write('Wrote nurseCharting features to CSV\n')
 
 del nursingchart
 
-lab = pd.read_csv(args.path, 'lab.csv.gz', compression='gzip')
+lab = pd.read_csv(os.path.join(args.path, 'lab.csv.gz'), compression='gzip')
 
 logfile.write('Loaded lab\n')
 
 # Only select relevant columns
-lab = lab.loc[['patientunitstayid', 'labresultoffset', 'labname', 'labresult']]
+lab = lab.[['patientunitstayid', 'labresultoffset', 'labname', 'labresult']]
 
 # Only select relevant rows
 lab = lab[lab['patientunitstayid'].isin(stayids)]
@@ -223,13 +223,13 @@ lab['offset'] = (lab['offset']/60).astype('int')
 # Impute values within offset by replacing NaN with mean over each column.
 lab.groupby(['patientunitstayid', 'offset']).apply(lambda x: x.fillna(x.mean()))
 # For each offset, only choose last value.
-lab.drop_duplicates('offset', keep='last', inplace=True)
+lab.drop_duplicates(['patientunitstayid', 'offset'], keep='last', inplace=True)
 # Impute missing values with "typical values"
 lab.fillna(value=impute_values, inplace=True)
 
 logfile.write('Binned and imputed features from lab\n')
 
-lab.to_csv(os.path.join(args.path, 'lab_features.csv'))
+lab.to_csv(os.path.join(args.path, 'lab_features.csv.gz'), compression='gzip')
 
 logfile.write('Wrote lab features to CSV\n')
 
