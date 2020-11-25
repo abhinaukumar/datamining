@@ -18,7 +18,11 @@ def save_model(model, save_dir, hyperparam_dict):
     filename = filename + '_' + str(t.tm_mday) + '_' + str(t.tm_mon) + '_' + str(t.tm_hour) + '_' + str(t.tm_min) + '.pkl'
     save_path = os.path.join(save_dir, filename)
 
-    pkl.dump(model.cpu(), open(save_path, 'wb'))
+    model = model.cpu()
+    if 'tensors_to_cpu' in dir(model):
+        model.tensors_to_cpu()
+
+    pkl.dump(model, open(save_path, 'wb'))
 
     print("Model written to path: " + save_path)
 
@@ -86,7 +90,7 @@ class DataGenerator(object):
             
             print('Fitting Target Encoder')
             encoder = TargetEncoder()
-            encoder.fit(self.X, self.y, 'apacheadmissiondx')
+            encoder.fit(self.X, self.y, ['apacheadmissiondx', 'ethnicity', 'gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal'])
             pkl.dump(encoder, open(encoder_path, 'wb'))
 
         self.X = encoder.transform(self.X)
@@ -159,6 +163,10 @@ class BiLSTMModel(nn.Module):
         self.h_init = self.h_init.cuda()
         self.c_init = self.c_init.cuda()
 
+    def tensors_to_cpu(self):
+        self.h_init = self.h_init.cpu()
+        self.c_init = self.c_init.cpu()
+
     def forward(self, x):
         assert x.size(0) == 1, 'Only one example can be processed at once'
 
@@ -196,6 +204,10 @@ class LSTMModel(nn.Module):
     def tensors_to_cuda(self):
         self.h_init = self.h_init.cuda()
         self.c_init = self.c_init.cuda()
+
+    def tensors_to_cpu(self):
+        self.h_init = self.h_init.cpu()
+        self.c_init = self.c_init.cpu()
 
     def forward(self, x):
         assert x.size(0) == 1, 'Only one example can be processed at once'
@@ -241,6 +253,12 @@ class RETAINModel(nn.Module):
         self.alpha_c_init = self.alpha_c_init.cuda()
         self.beta_h_init = self.beta_h_init.cuda()
         self.beta_c_init = self.beta_c_init.cuda()
+
+    def tensors_to_cpu(self):
+        self.alpha_h_init = self.alpha_h_init.cpu()
+        self.alpha_c_init = self.alpha_c_init.cpu()
+        self.beta_h_init = self.beta_h_init.cpu()
+        self.beta_c_init = self.beta_c_init.cpu()
 
     def forward(self, x):
         assert x.size(0) == 1, 'Only one example can be processed at once'
