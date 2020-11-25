@@ -4,6 +4,9 @@ temp/
 # Ignore models directory
 models/
 
+# Ignore pycache
+__pycache__/
+
 ## Ignore VIM files. From Github's vim.gitignore
 # Swap
 [._]*.s[a-v][a-z]
