@@ -118,7 +118,11 @@ class DataGenerator(object):
                     temp_x = self.X.loc[train_id].copy()
                     temp_x = torch.from_numpy(temp_x.values).unsqueeze(0).float()
                     temp_y = self.y.loc[train_id].copy()
-                    temp_y = torch.from_numpy(temp_y.values).unsqueeze(0).float()
+                    if len(temp_x.shape) == 2:
+                        temp_x = temp_x.unsqueeze(0)
+                        temp_y = torch.tensor([temp_y]).unsqueeze(0).unsqueeze(0).float()
+                    else:
+                        temp_y = torch.from_numpy(temp_y.values).unsqueeze(0).float()
                     if self.use_cuda:
                         temp_x = temp_x.cuda()
                         temp_y = temp_y.cuda()
@@ -142,6 +146,10 @@ class BiLSTMModel(nn.Module):
     
         self.h_init = torch.zeros((self.n_recurrent_layers*2, 1, hidden_size))
         self.c_init = torch.zeros((self.n_recurrent_layers*2, 1, hidden_size))
+
+    def tensors_to_cuda(self):
+        self.h_init = self.h_init.cuda()
+        self.c_init = self.c_init.cuda()
 
     def forward(self, x):
         assert x.size(0) == 1, 'Only one example can be processed at once'
@@ -176,6 +184,10 @@ class LSTMModel(nn.Module):
     
         self.h_init = torch.zeros((self.n_recurrent_layers, 1, hidden_size))
         self.c_init = torch.zeros((self.n_recurrent_layers, 1, hidden_size))
+
+    def tensors_to_cuda(self):
+        self.h_init = self.h_init.cuda()
+        self.c_init = self.c_init.cuda()
 
     def forward(self, x):
         assert x.size(0) == 1, 'Only one example can be processed at once'
@@ -216,6 +228,12 @@ class RETAINModel(nn.Module):
         self.beta_h_init = torch.zeros((self.n_recurrent_layers, 1, hidden_size))
         self.beta_c_init = torch.zeros((self.n_recurrent_layers, 1, hidden_size))
 
+    def tensors_to_cuda(self):
+        self.alpha_h_init = self.alpha_h_init.cuda()
+        self.alpha_c_init = self.alpha_c_init.cuda()
+        self.beta_h_init = self.beta_h_init.cuda()
+        self.beta_c_init = self.beta_c_init.cuda()
+
     def forward(self, x):
         assert x.size(0) == 1, 'Only one example can be processed at once'
 
@@ -245,3 +263,4 @@ class RETAINModel(nn.Module):
         y = nn.ReLU()(self.predictor(z).squeeze(1)) # Reshape to 1 x seq_length
 
         return y, alpha, beta
+
