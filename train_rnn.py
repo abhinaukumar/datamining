@@ -9,7 +9,7 @@ np.random.seed(0)
 parser = argparse.ArgumentParser(description='Code to train RNN and intepretable RNN models')
 parser.add_argument('--path', help='Path to dataset', type=str, required=True)
 parser.add_argument('--epochs', help='Number of epochs for which to train the model', type=int, default=10)
-parser.add_argument('--batch_size', help='Number of examples to use per update', type=int, default=10)
+# parser.add_argument('--batch_size', help='Number of examples to use per update', type=int, default=10)
 parser.add_argument('--lr', help='Learning rate', type=float, default=1e-3)
 parser.add_argument('--no_cuda', dest='use_cuda', help='Flag to not use CUDA', action='store_false')
 parser.set_defaults(use_cuda=True)
@@ -23,11 +23,11 @@ widgets = [
             ' ', progressbar.DynamicMessage('Error')
             ]
 
-data_generator = DataGenerator(args.path, args.batch_size, mode='train', use_cuda=args.use_cuda)
-data_generator_it = iter(data_generator)
+args.batch_size = 1
 embedding_size = 40
 hidden_size = 40
 
+data_generator = DataGenerator(args.path, args.batch_size, mode='train', use_cuda=args.use_cuda)
 model = BiLSTMModel(21, embedding_size, hidden_size)
 if args.use_cuda:
     model = model.cuda()
@@ -41,7 +41,7 @@ for epoch in range(args.epochs):
     print("Epoch {}/{}".format(epoch+1, args.epochs))
     with progressbar.ProgressBar(max_value = data_generator.steps_per_epoch, widgets=widgets) as bar:
         for i in range(data_generator.steps_per_epoch):
-            xs, ys = next(data_generator_it)
+            xs, ys = data_generator.next()
             
             y_preds = []
             loss = 0.0

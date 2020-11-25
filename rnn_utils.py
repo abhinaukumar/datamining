@@ -107,29 +107,37 @@ class DataGenerator(object):
         self.X[self.X.keys()] = scaler.transform(self.X)
         self.steps_per_epoch = self.n_ids//self.batch_size
 
-    def __iter__(self):
-        while True:
-            inds = np.random.permutation(self.n_ids)
-            for i in range(self.steps_per_epoch):
-                ids = self.stayids[inds[i*self.batch_size: (i+1)*self.batch_size]]
-                xs = []
-                ys = []
-                for train_id in ids:
-                    temp_x = self.X.loc[train_id].copy()
-                    temp_x = torch.from_numpy(temp_x.values).unsqueeze(0).float()
-                    temp_y = self.y.loc[train_id].copy()
-                    if len(temp_x.shape) == 2:
-                        temp_x = temp_x.unsqueeze(0)
-                        temp_y = torch.tensor([temp_y]).unsqueeze(0).unsqueeze(0).float()
-                    else:
-                        temp_y = torch.from_numpy(temp_y.values).unsqueeze(0).float()
-                    if self.use_cuda:
-                        temp_x = temp_x.cuda()
-                        temp_y = temp_y.cuda()
-                    xs.append(temp_x)
-                    ys.append(temp_y)
+        self.shuffle()
 
-                yield xs, ys
+    def shuffle(self):
+        self.inds = np.random.permutation(self.n_ids)
+        self.step = 0
+
+    def next(self):
+        if self.step == self.steps_per_epoch:
+            self.shuffle()
+
+        ids = self.stayids[self.inds[self.step*self.batch_size: (self.step+1)*self.batch_size]]
+
+        xs = []
+        ys = []
+        for train_id in ids:
+            temp_x = self.X.loc[train_id].copy()
+            temp_x = torch.from_numpy(temp_x.values).unsqueeze(0).float()
+            temp_y = self.y.loc[train_id].copy()
+            if len(temp_x.shape) == 2:
+                temp_x = temp_x.unsqueeze(0)
+                temp_y = torch.tensor([temp_y]).unsqueeze(0).unsqueeze(0).float()
+            else:
+                temp_y = torch.from_numpy(temp_y.values).unsqueeze(0).float()
+            if self.use_cuda:
+                temp_x = temp_x.cuda()
+                temp_y = temp_y.cuda()
+            xs.append(temp_x)
+            ys.append(temp_y)
+
+        self.step += 1
+        return (xs, ys)
 
 
 class BiLSTMModel(nn.Module):
