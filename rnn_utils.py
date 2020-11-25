@@ -40,9 +40,10 @@ class TargetEncoder():
             keys = [keys]
 
         for key in keys:
+            print("Fitting column {}".format(key))
             category_map = {}
             for category, group in X.groupby(key, as_index=False):
-                category_map[category] = y.loc[group.index].mean()
+                category_map[category] = y.loc[y.index.isin(group.index)].mean()
             self.category_maps[key] = category_map
 
     def transform(self, X):
@@ -88,11 +89,12 @@ class DataGenerator(object):
                 print('Encoder not found')
                 return
             
-            print('Fitting Target Encoder')
+            print('Fitting TargetEncoder')
             encoder = TargetEncoder()
             encoder.fit(self.X, self.y, ['apacheadmissiondx', 'ethnicity', 'gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal'])
             pkl.dump(encoder, open(encoder_path, 'wb'))
 
+        print('Transforming using TargetEncoder')
         self.X = encoder.transform(self.X)
 
         scaler_path = os.path.join('models', 'minmaxscaler.pkl')
@@ -108,6 +110,7 @@ class DataGenerator(object):
             scaler.fit(self.X)
             pkl.dump(scaler, open(scaler_path, 'wb'))
 
+        print('Transforming using MinMaxScaler')
         self.X[self.X.keys()] = scaler.transform(self.X)
         self.steps_per_epoch = self.n_ids//self.batch_size
 
