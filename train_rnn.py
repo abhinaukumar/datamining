@@ -6,6 +6,7 @@ import progressbar
 
 torch.manual_seed(0)
 np.random.seed(0)
+
 parser = argparse.ArgumentParser(description='Code to train RNN and intepretable RNN models')
 parser.add_argument('--path', help='Path to dataset', type=str, required=True)
 parser.add_argument('--epochs', help='Number of epochs for which to train the model', type=int, default=10)
