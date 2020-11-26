@@ -44,12 +44,14 @@ class TargetEncoder():
             category_map = {}
             for category, group in X.groupby(key, as_index=False):
                 category_map[category] = y.loc[y.index.isin(group.index)].mean()
+            category_map[''] = y.mean()
             self.category_maps[key] = category_map
 
     def transform(self, X):
         retX = X.copy()
-        for key in self.keys():
-            retX[key] = retX[key].map(self.category_maps[key])
+        for key in retX.keys():
+            if key in self.category_maps:
+                retX[key] = retX[key].map(lambda x: self.category_maps[key][x] if x in self.category_maps[key] else self.category_maps[key][''])
         
         return retX
 
@@ -303,7 +305,7 @@ class RETAINModel(nn.Module):
 
 class BiRETAINModel(nn.Module):
     def __init__(self, input_size, embedding_size, hidden_size, n_recurrent_layers=3):
-        super(RETAINModel, self).__init__()
+        super(BiRETAINModel, self).__init__()
         self.input_size = input_size
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
@@ -363,4 +365,4 @@ class BiRETAINModel(nn.Module):
         else:
             return y, alpha, beta
 
-models_dict = {'bilstm': BiLSTMModel, 'lstm': LSTMModel, 'retain': RETAINModel, 'biretain': BiRETAIN}
+models_dict = {'bilstm': BiLSTMModel, 'lstm': LSTMModel, 'retain': RETAINModel, 'biretain': BiRETAINModel}
