@@ -9,6 +9,7 @@ np.random.seed(0)
 
 parser = argparse.ArgumentParser(description='Code to train RNN and intepretable RNN models')
 parser.add_argument('--path', help='Path to dataset', type=str, required=True)
+parser.add_argument('--model', help='Model to train', type=str, required=True)
 parser.add_argument('--epochs', help='Number of epochs for which to train the model', type=int, default=10)
 # parser.add_argument('--batch_size', help='Number of examples to use per update', type=int, default=10)
 parser.add_argument('--lr', help='Learning rate', type=float, default=1e-3)
@@ -17,6 +18,9 @@ parser.set_defaults(use_cuda=True)
 
 args = parser.parse_args()
 assert os.path.exists(args.path), 'Path to dataset does not exist'
+assert args.model in models_dict, 'Invalid choice of model'
+
+ModelClass = models_dict[args.model]
 
 widgets = [
             progressbar.ETA(),
@@ -29,7 +33,7 @@ embedding_size = 40
 hidden_size = 40
 
 data_generator = DataGenerator(args.path, args.batch_size, mode='train', use_cuda=args.use_cuda)
-model = BiLSTMModel(21, embedding_size, hidden_size)
+model = ModelClass(21, embedding_size, hidden_size)
 if args.use_cuda:
     model = model.cuda()
     model.tensors_to_cuda()
