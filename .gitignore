@@ -1,8 +1,8 @@
 # Ignore temp directory
 temp/
 
-# Ignore data directory
-data/
+# Ignore results directory
+results/
 
 # Ignore models directory
 models/
