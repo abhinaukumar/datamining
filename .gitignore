@@ -1,6 +1,6 @@
 # Ignore data files
 data/
-
+logs/
 # Ignore temp directory
 temp/
 .vscode/
