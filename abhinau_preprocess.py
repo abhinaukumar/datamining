@@ -65,6 +65,10 @@ patients = patients.loc[patients['unitdischargestatus'].notnull()]  # (95333, 29
 # Select unique stayids
 stayids = patients['patientunitstayid'].unique()
 
+ztu_features = patients.loc[:, ['patientunitstayid', 'gender', 'age', 'ethnicity', 'apacheadmissiondx']]
+
+ztu_features.to_csv(os.path.join(args.path, 'ztu_features.csv'))
+
 patients.to_csv(os.path.join(args.path, 'filtered_patient.csv'))
 del patients
 
@@ -89,47 +93,47 @@ for stayid in stayids:
 del nursingchart
 '''
 
-# Collecting features. 
-gcs_features = ['GCS Total', 'Verbal', 'Eyes', 'Motor']
-# Typical values for imputation, from Benchmarking ML algorithms paper.
-impute_values = dict(zip(gcs_features, [15, 5, 4, 6]))
+# # Collecting features. 
+# gcs_features = ['GCS Total', 'Verbal', 'Eyes', 'Motor']
+# # Typical values for imputation, from Benchmarking ML algorithms paper.
+# impute_values = dict(zip(gcs_features, [15, 5, 4, 6]))
 
-with progressbar.ProgressBar(max_value = len(stayids), widgets=widgets) as bar:
-    for i_stayid, stayid in enumerate(stayids):
-        df = pd.read_csv(os.path.join(args.path, 'nurseChartingStays', str(stayid) + '.csv'))
+# with progressbar.ProgressBar(max_value = len(stayids), widgets=widgets) as bar:
+#     for i_stayid, stayid in enumerate(stayids):
+#         df = pd.read_csv(os.path.join(args.path, 'nurseChartingStays', str(stayid) + '.csv'))
 
-        if df.shape[0] != 0:
-            # Sort by offset, thereby arranging in time series order
-            df = df.sort_values(by='nursingchartoffset')
-            offsets = df['nursingchartoffset'].unique()
+#         if df.shape[0] != 0:
+#             # Sort by offset, thereby arranging in time series order
+#             df = df.sort_values(by='nursingchartoffset')
+#             offsets = df['nursingchartoffset'].unique()
 
-            out_df = pd.DataFrame(offsets, columns=['nursingchartoffset'])
-            for feat in gcs_features:
-                out_df.insert(out_df.shape[1], feat, np.nan, allow_duplicates=False)
+#             out_df = pd.DataFrame(offsets, columns=['nursingchartoffset'])
+#             for feat in gcs_features:
+#                 out_df.insert(out_df.shape[1], feat, np.nan, allow_duplicates=False)
 
-            offset_groups = df.groupby('nursingchartoffset')
-            i_offset = 0
-            for offset, group in offset_groups:
-                avail_feats = group['nursingchartcelltypevalname'].unique()
-                for feat in gcs_features:
-                    if feat in avail_feats:
-                        out_df.loc[i_offset, feat] = group.loc[group['nursingchartcelltypevalname'] == feat, 'nursingchartvalue'].to_numpy()[0]
-                i_offset += 1 
+#             offset_groups = df.groupby('nursingchartoffset')
+#             i_offset = 0
+#             for offset, group in offset_groups:
+#                 avail_feats = group['nursingchartcelltypevalname'].unique()
+#                 for feat in gcs_features:
+#                     if feat in avail_feats:
+#                         out_df.loc[i_offset, feat] = group.loc[group['nursingchartcelltypevalname'] == feat, 'nursingchartvalue'].to_numpy()[0]
+#                 i_offset += 1 
 
-            out_df['nursingchartoffset'] = (out_df['nursingchartoffset']/60).astype('int')
+#             out_df['nursingchartoffset'] = (out_df['nursingchartoffset']/60).astype('int')
 
-            # Impute values within offset by replacing NaN with mean over each column.
-            out_df.groupby('nursingchartoffset').apply(lambda x: x.fillna(x.mean()))
-            # For each offset, only choose last value.
-            out_df.drop_duplicates('nursingchartoffset', keep='last', inplace=True)
-            # Impute missing values with "typical values"
-            out_df.fillna(value=impute_values, inplace=True)
+#             # Impute values within offset by replacing NaN with mean over each column.
+#             out_df.groupby('nursingchartoffset').apply(lambda x: x.fillna(x.mean()))
+#             # For each offset, only choose last value.
+#             out_df.drop_duplicates('nursingchartoffset', keep='last', inplace=True)
+#             # Impute missing values with "typical values"
+#             out_df.fillna(value=impute_values, inplace=True)
 
-        else:
-            out_df = pd.DataFrame(columns=['nursingchartoffset'])
+#         else:
+#             out_df = pd.DataFrame(columns=['nursingchartoffset'])
 
-        out_df.to_csv(os.path.join(args.path, 'gcsFeatures', str(stayid) + '.csv'), index=False)
+#         out_df.to_csv(os.path.join(args.path, 'gcsFeatures', str(stayid) + '.csv'), index=False)
 
-        del df, out_df
-        bar.update(i_stayid, StayID=stayid)
+#         del df, out_df
+#         bar.update(i_stayid, StayID=stayid)
 
