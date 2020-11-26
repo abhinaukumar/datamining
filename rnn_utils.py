@@ -263,11 +263,11 @@ class RETAINModel(nn.Module):
         self.beta_h_init = self.beta_h_init.cpu()
         self.beta_c_init = self.beta_c_init.cpu()
 
-    def forward(self, x):
+    def forward(self, x, interpret=False):
         assert x.size(0) == 1, 'Only one example can be processed at once'
 
         # Reverse order of events
-        x = x[:, ::-1, :]
+        x = torch.flip(x, (1,))
 
         # Initialize hidden layers
         self.alpha_h_init.fill_(0.0)
@@ -289,7 +289,15 @@ class RETAINModel(nn.Module):
 
         v = v.permute(0, 2, 1) # Make v compatible with 1D convolution again
         v_weighted = (v * beta) * alpha.repeat(1, self.embedding_size, 1)
-        y = nn.ReLU()(self.predictor(z).squeeze(1)) # Reshape to 1 x seq_length
+        y = nn.ReLU()(self.predictor(v_weighted).squeeze(1)) # Reshape to 1 x seq_length
 
-        return y, alpha, beta
+        y = torch.flip(y, (1,))
+        alpha = torch.flip(alpha, (1,))
+        beta = torch.flip(beta, (1,))
 
+        if not interpret:
+            return y
+        else:
+            return y, alpha, beta
+
+models_dict = {'bilstm': BiLSTMModel, 'lstm': LSTMModel, 'retain': RETAINModel}
