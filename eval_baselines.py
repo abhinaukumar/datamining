@@ -7,8 +7,9 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.impute import SimpleImputer
 from sklearn.model_selection import RandomizedSearchCV
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 import scipy.stats
 
 
@@ -52,34 +53,39 @@ class TargetEncoder():
             category_map = {}
             for category, group in X.groupby(key, as_index=False):
                 category_map[category] = y.loc[y.index.isin(group.index)].mean()
+            category_map[''] = y.mean()
             self.category_maps[key] = category_map
 
     def transform(self, X):
         retX = X.copy()
-        for key in self.keys():
-            retX[key] = retX[key].map(self.category_maps[key])
+        for key in retX.keys():
+            if key in self.category_maps:
+                retX[key] = retX[key].map(lambda x: self.category_maps[key][x] if x in self.category_maps[key] else self.category_maps[key][''])
         
         return retX
 
 def compute_metrics(y_true, y_pred):
+    mae = mean_absolute_error(y_true, y_pred)
     mse = mean_squared_error(y_true, y_pred)
     r2 = r2_score(y_true, y_pred)
     srcc = scipy.stats.spearmanr(y_true, y_pred)[0]
     plcc = scipy.stats.pearsonr(y_true, y_pred)[0]
-    return [mse, r2, srcc, plcc]
+    return [mae, mse, r2, srcc, plcc]
 
 def formatted_print(metrics_train, metrics_test):
-  print('======================================================')
-  print('MSE_train: ', metrics_train[0])
-  print('R2_train: ', metrics_train[1])
-  print('SRCC_train: ', metrics_train[2])
-  print('PLCC_train: ', metrics_train[3])
-  print('======================================================')
-  print('MSE_test: ', metrics_test[0])
-  print('R2_test: ', metrics_test[1])
-  print('SRCC_test: ', metrics_test[2])
-  print('PLCC_test: ', metrics_test[3])
-  print('======================================================')
+    print('======================================================')
+    print(f'MAE_train :  {metrics_train[0]:.4}')
+    print(f'MSE_train :  {metrics_train[1]:.4}')
+    print(f'R2_train  :  {metrics_train[2]:.4}')
+    print(f'SRCC_train:  {metrics_train[3]:.4}')
+    print(f'PLCC_train:  {metrics_train[4]:.4}')
+    print('======================================================')
+    print(f'MAE_test  :  {metrics_test[0]:.4}')
+    print(f'MSE_test  :  {metrics_test[1]:.4}')
+    print(f'R2_test   :  {metrics_test[2]:.4}')
+    print(f'SRCC_test :  {metrics_test[3]:.4}')
+    print(f'PLCC_test :  {metrics_test[4]:.4}')
+    print('======================================================')
 
 def main(args):
     # read dataset
@@ -100,11 +106,18 @@ def main(args):
 
     # apply targetencoder to category features
     print('Applying targetencoder...')
+    t_start = time.time()
     target_enc = TargetEncoder()
     cat_feature_keys = ['apacheadmissiondx', 'ethnicity', 'gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal']
     target_enc.fit(X_train, y_train, cat_feature_keys)
     X_train = target_enc.transform(X_train)
     X_test = target_enc.transform(X_test)
+
+    # imputer 
+    imp_mean = SimpleImputer(missing_values=np.nan, strategy='mean')
+    imp_mean.fit(X_train)
+    X_train = imp_mean.transform(X_train)
+    X_test = imp_mean.transform(X_test)
 
     # scaler 
     print('Fitting MinMaxScaler...')
