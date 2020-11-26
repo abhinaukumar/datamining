@@ -18,7 +18,11 @@ def save_model(model, save_dir, hyperparam_dict):
     filename = filename + '_' + str(t.tm_mday) + '_' + str(t.tm_mon) + '_' + str(t.tm_hour) + '_' + str(t.tm_min) + '.pkl'
     save_path = os.path.join(save_dir, filename)
 
-    pkl.dump(model.cpu(), open(save_path, 'wb'))
+    model = model.cpu()
+    if 'tensors_to_cpu' in dir(model):
+        model.tensors_to_cpu()
+
+    pkl.dump(model, open(save_path, 'wb'))
 
     print("Model written to path: " + save_path)
 
@@ -36,9 +40,10 @@ class TargetEncoder():
             keys = [keys]
 
         for key in keys:
+            print("Fitting column {}".format(key))
             category_map = {}
             for category, group in X.groupby(key, as_index=False):
-                category_map[category] = y.loc[group.index].mean()
+                category_map[category] = y.loc[y.index.isin(group.index)].mean()
             self.category_maps[key] = category_map
 
     def transform(self, X):
@@ -84,11 +89,12 @@ class DataGenerator(object):
                 print('Encoder not found')
                 return
             
-            print('Fitting Target Encoder')
+            print('Fitting TargetEncoder')
             encoder = TargetEncoder()
-            encoder.fit(self.X, self.y, 'apacheadmissiondx')
+            encoder.fit(self.X, self.y, ['apacheadmissiondx', 'ethnicity', 'gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal'])
             pkl.dump(encoder, open(encoder_path, 'wb'))
 
+        print('Transforming using TargetEncoder')
         self.X = encoder.transform(self.X)
 
         scaler_path = os.path.join('models', 'minmaxscaler.pkl')
@@ -104,28 +110,41 @@ class DataGenerator(object):
             scaler.fit(self.X)
             pkl.dump(scaler, open(scaler_path, 'wb'))
 
+        print('Transforming using MinMaxScaler')
         self.X[self.X.keys()] = scaler.transform(self.X)
         self.steps_per_epoch = self.n_ids//self.batch_size
 
-    def __iter__(self):
-        while True:
-            inds = np.random.permutation(self.n_ids)
-            for i in range(self.steps_per_epoch):
-                ids = self.stayids[inds[i*self.batch_size: (i+1)*self.batch_size]]
-                xs = []
-                ys = []
-                for train_id in ids:
-                    temp_x = self.X.loc[train_id].copy()
-                    temp_x = torch.from_numpy(temp_x.values).unsqueeze(0).float()
-                    temp_y = self.y.loc[train_id].copy()
-                    temp_y = torch.from_numpy(temp_y.values).unsqueeze(0).float()
-                    if self.use_cuda:
-                        temp_x = temp_x.cuda()
-                        temp_y = temp_y.cuda()
-                    xs.append(temp_x)
-                    ys.append(temp_y)
+        self.shuffle()
 
-                yield xs, ys
+    def shuffle(self):
+        self.inds = np.random.permutation(self.n_ids)
+        self.step = 0
+
+    def next(self):
+        if self.step == self.steps_per_epoch:
+            self.shuffle()
+
+        ids = self.stayids[self.inds[self.step*self.batch_size: (self.step+1)*self.batch_size]]
+
+        xs = []
+        ys = []
+        for train_id in ids:
+            temp_x = self.X.loc[train_id].copy()
+            temp_x = torch.from_numpy(temp_x.values).unsqueeze(0).float()
+            temp_y = self.y.loc[train_id].copy()
+            if len(temp_x.shape) == 2:
+                temp_x = temp_x.unsqueeze(0)
+                temp_y = torch.tensor([temp_y]).unsqueeze(0).unsqueeze(0).float()
+            else:
+                temp_y = torch.from_numpy(temp_y.values).unsqueeze(0).float()
+            if self.use_cuda:
+                temp_x = temp_x.cuda()
+                temp_y = temp_y.cuda()
+            xs.append(temp_x)
+            ys.append(temp_y)
+
+        self.step += 1
+        return (xs, ys)
 
 
 class BiLSTMModel(nn.Module):
@@ -142,6 +161,14 @@ class BiLSTMModel(nn.Module):
     
         self.h_init = torch.zeros((self.n_recurrent_layers*2, 1, hidden_size))
         self.c_init = torch.zeros((self.n_recurrent_layers*2, 1, hidden_size))
+
+    def tensors_to_cuda(self):
+        self.h_init = self.h_init.cuda()
+        self.c_init = self.c_init.cuda()
+
+    def tensors_to_cpu(self):
+        self.h_init = self.h_init.cpu()
+        self.c_init = self.c_init.cpu()
 
     def forward(self, x):
         assert x.size(0) == 1, 'Only one example can be processed at once'
@@ -176,6 +203,14 @@ class LSTMModel(nn.Module):
     
         self.h_init = torch.zeros((self.n_recurrent_layers, 1, hidden_size))
         self.c_init = torch.zeros((self.n_recurrent_layers, 1, hidden_size))
+
+    def tensors_to_cuda(self):
+        self.h_init = self.h_init.cuda()
+        self.c_init = self.c_init.cuda()
+
+    def tensors_to_cpu(self):
+        self.h_init = self.h_init.cpu()
+        self.c_init = self.c_init.cpu()
 
     def forward(self, x):
         assert x.size(0) == 1, 'Only one example can be processed at once'
@@ -216,6 +251,18 @@ class RETAINModel(nn.Module):
         self.beta_h_init = torch.zeros((self.n_recurrent_layers, 1, hidden_size))
         self.beta_c_init = torch.zeros((self.n_recurrent_layers, 1, hidden_size))
 
+    def tensors_to_cuda(self):
+        self.alpha_h_init = self.alpha_h_init.cuda()
+        self.alpha_c_init = self.alpha_c_init.cuda()
+        self.beta_h_init = self.beta_h_init.cuda()
+        self.beta_c_init = self.beta_c_init.cuda()
+
+    def tensors_to_cpu(self):
+        self.alpha_h_init = self.alpha_h_init.cpu()
+        self.alpha_c_init = self.alpha_c_init.cpu()
+        self.beta_h_init = self.beta_h_init.cpu()
+        self.beta_c_init = self.beta_c_init.cpu()
+
     def forward(self, x):
         assert x.size(0) == 1, 'Only one example can be processed at once'
 
@@ -245,3 +292,4 @@ class RETAINModel(nn.Module):
         y = nn.ReLU()(self.predictor(z).squeeze(1)) # Reshape to 1 x seq_length
 
         return y, alpha, beta
+
