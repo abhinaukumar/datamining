@@ -172,8 +172,9 @@ class BiLSTMModel(nn.Module):
         self.h_init = self.h_init.cpu()
         self.c_init = self.c_init.cpu()
 
-    def forward(self, x):
+    def forward(self, x, mode='train'):
         assert x.size(0) == 1, 'Only one example can be processed at once'
+        assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
 
         # Initialize hidden layers
         self.h_init.fill_(0.0)
@@ -186,7 +187,10 @@ class BiLSTMModel(nn.Module):
         z, _ = self.bilstm_cell(v, (self.h_init, self.c_init))
         z = z.permute(0, 2, 1) # Interpret features as channels for 1D convolution
         
-        y = nn.ReLU()(self.predictor(z).squeeze(1)) # Reshape to 1 x seq_length
+        y = self.predictor(z).squeeze(1) # Reshape to 1 x seq_length
+
+        if mode == 'test':
+            y = nn.ReLU()(y)
 
         return y
 
@@ -214,8 +218,9 @@ class LSTMModel(nn.Module):
         self.h_init = self.h_init.cpu()
         self.c_init = self.c_init.cpu()
 
-    def forward(self, x):
+    def forward(self, x, mode='train'):
         assert x.size(0) == 1, 'Only one example can be processed at once'
+        assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
 
         # Initialize hidden layers
         self.h_init.fill_(0.0)
@@ -228,7 +233,10 @@ class LSTMModel(nn.Module):
         z, _ = self.lstm_cell(v, (self.h_init, self.c_init))
         z = z.permute(0, 2, 1) # Interpret features as channels for 1D convolution
         
-        y = nn.ReLU()(self.predictor(z).squeeze(1)) # Reshape to 1 x seq_length
+        y = self.predictor(z).squeeze(1) # Reshape to 1 x seq_length
+
+        if mode == 'test':
+            y = nn.ReLU()(y)
 
         return y
 
@@ -265,8 +273,9 @@ class RETAINModel(nn.Module):
         self.beta_h_init = self.beta_h_init.cpu()
         self.beta_c_init = self.beta_c_init.cpu()
 
-    def forward(self, x, interpret=False):
+    def forward(self, x, interpret=False, mode='test'):
         assert x.size(0) == 1, 'Only one example can be processed at once'
+        assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
 
         # Reverse order of events
         x = torch.flip(x, (1,))
@@ -291,11 +300,14 @@ class RETAINModel(nn.Module):
 
         v = v.permute(0, 2, 1) # Make v compatible with 1D convolution again
         v_weighted = (v * beta) * alpha.repeat(1, self.embedding_size, 1)
-        y = nn.ReLU()(self.predictor(v_weighted).squeeze(1)) # Reshape to 1 x seq_length
+        y = self.predictor(v_weighted).squeeze(1) # Reshape to 1 x seq_length
 
         y = torch.flip(y, (1,))
         alpha = torch.flip(alpha, (1,))
         beta = torch.flip(beta, (1,))
+
+        if mode == 'test':
+            y = nn.ReLU()(y)
 
         if not interpret:
             return y
@@ -335,8 +347,10 @@ class BiRETAINModel(nn.Module):
         self.beta_h_init = self.beta_h_init.cpu()
         self.beta_c_init = self.beta_c_init.cpu()
 
-    def forward(self, x, interpret=False):
+    def forward(self, x, interpret=False, mode='test'):
         assert x.size(0) == 1, 'Only one example can be processed at once'
+        assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
+
 
         # Initialize hidden layers
         self.alpha_h_init.fill_(0.0)
@@ -358,7 +372,10 @@ class BiRETAINModel(nn.Module):
 
         v = v.permute(0, 2, 1) # Make v compatible with 1D convolution again
         v_weighted = (v * beta) * alpha.repeat(1, self.embedding_size, 1)
-        y = nn.ReLU()(self.predictor(v_weighted).squeeze(1)) # Reshape to 1 x seq_length
+        y = self.predictor(v_weighted).squeeze(1) # Reshape to 1 x seq_length
+
+        if mode == 'test':
+            y = nn.ReLU()(y)
 
         if not interpret:
             return y
