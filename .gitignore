@@ -1,6 +1,9 @@
 # Ignore temp directory
 temp/
 
+# Ignore data directory
+data/
+
 # Ignore models directory
 models/
 
