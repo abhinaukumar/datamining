@@ -3,7 +3,7 @@ import numpy as np
 from rnn_utils import *
 import os
 from scipy.io import savemat
-from scipy.metrics import r2_score
+from sklearn.metrics import r2_score
 import argparse
 import progressbar
 
@@ -59,4 +59,8 @@ mae = np.mean(np.abs(y_trues - y_preds))
 rmse = np.sqrt(np.mean((y_trues - y_preds)**2))
 r2 = r2_score(y_trues, y_preds)
 
-savemat(os.path.join('results', model.__class__.__name__ + ('_reversed' if args.reverse_inputs else '') + '_results.mat'), {'y_trues': y_trues, 'y_preds': y_preds, 'mae': mae, 'rmse': rmse, 'r2_score': r2})
+print("MAE: {}".format(mae))
+print("RMSE: {}".format(rmse))
+print("R2 score: {}".format(r2))
+
+savemat(os.path.join('results', model.__class__.__name__ + ('_reversed' if args.reverse_input else '') + '_results.mat'), {'y_trues': y_trues, 'y_preds': y_preds, 'mae': mae, 'rmse': rmse, 'r2_score': r2})
