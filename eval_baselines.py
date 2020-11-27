@@ -74,17 +74,17 @@ def compute_metrics(y_true, y_pred):
 
 def formatted_print(metrics_train, metrics_test):
     print('======================================================')
-    print(f'MAE_train :  {metrics_train[0]:.4}')
-    print(f'MSE_train :  {metrics_train[1]:.4}')
-    print(f'R2_train  :  {metrics_train[2]:.4}')
-    print(f'SRCC_train:  {metrics_train[3]:.4}')
-    print(f'PLCC_train:  {metrics_train[4]:.4}')
+    print(f'MAE_train :  {metrics_train[0]:6.6}')
+    print(f'MSE_train :  {metrics_train[1]:6.6}')
+    print(f'R2_train  :  {metrics_train[2]:6.6}')
+    print(f'SRCC_train:  {metrics_train[3]:6.6}')
+    print(f'PLCC_train:  {metrics_train[4]:6.6}')
     print('======================================================')
-    print(f'MAE_test  :  {metrics_test[0]:.4}')
-    print(f'MSE_test  :  {metrics_test[1]:.4}')
-    print(f'R2_test   :  {metrics_test[2]:.4}')
-    print(f'SRCC_test :  {metrics_test[3]:.4}')
-    print(f'PLCC_test :  {metrics_test[4]:.4}')
+    print(f'MAE_test  :  {metrics_test[0]:6.6}')
+    print(f'MSE_test  :  {metrics_test[1]:6.6}')
+    print(f'R2_test   :  {metrics_test[2]:6.6}')
+    print(f'SRCC_test :  {metrics_test[3]:6.6}')
+    print(f'PLCC_test :  {metrics_test[4]:6.6}')
     print('======================================================')
 
 def main(args):
