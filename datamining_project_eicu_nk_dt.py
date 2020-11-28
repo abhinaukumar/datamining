@@ -94,11 +94,11 @@ X_tst_scld=input_scaling(X_tst)
 
 #%%#  
 # create a Vanilla decisontree regressor object 
-regressor = DecisionTreeRegressor(random_state = 0, max_depth=5,  min_samples_split=10, min_samples_leaf=100)  
+regressor1 = DecisionTreeRegressor(random_state = 0, max_depth=5,  min_samples_split=10, min_samples_leaf=100)  
   
 # fit the regressor with X and Y data 
-regressor.fit(X_trn_scld, y_train) 
-y_pred = regressor.predict(X_tst_scld) 
+regressor1.fit(X_trn_scld, y_train) 
+y_pred = regressor1.predict(X_tst_scld) 
 
 df=pd.DataFrame({'Actual':y_test, 'Predicted':y_pred})
 df['Actual'].mean()
@@ -109,10 +109,11 @@ print('Mean Absolute Error:', mae)
 print('Mean Squared Error:',mse)
 print('Root Mean Squared Error:', rmse)
 print('R-squared:', r2)
-print('No. of leaves', regressor.get_n_leaves())
+print('No. of leaves', regressor1.get_n_leaves())
 
 regressor = DecisionTreeRegressor(random_state = 0, max_depth=5,  min_samples_split=10, min_samples_leaf=100)  
-  
+ 
+test=X_trn_scld.head() 
 # fit the regressor with X_train and Y_train datadirectly without encoding and scaling
 regressor.fit(X_train, y_train) 
 y_pred = regressor.predict(X_test) 
@@ -129,7 +130,6 @@ print('R-squared:', r2)
 print('No. of leaves', regressor.get_n_leaves())
 #%%#
 # Doing a gridsearchCV and 5-fold and 10 fold CV R sq upto 0.08
-
 scoring = make_scorer(r2_score)
 param_grid={"max_depth": [10, 15],
               "max_leaf_nodes": [20, 100],
@@ -142,11 +142,17 @@ g_cv.best_params_
 result = g_cv.cv_results_
 # print(result)
 r2_score(y_test, g_cv.best_estimator_.predict(X_tst_scld))
+mae, mse, rmse, r2=compute_metrics(y_test,g_cv.best_estimator_.predict(X_tst_scld))
+print('Mean Absolute Error:', mae)
+print('Mean Squared Error:',mse)
+print('Root Mean Squared Error:', rmse)
+print('R-squared:', r2)
+print('No. of leaves', regressor.get_n_leaves())
 #%%#
 #Predicting just LOS i.e., 1st record for each patient id.
-test=eicu.head()
-LOS_eicu=eicu.groupby('patientunitstayid').first()
 
+LOS_eicu=eicu.groupby('patientunitstayid').first()
+test=LOS_eicu.head()
 #Some patient unit stay ids do not start with offset 1
 eicu.loc[141631.0]
 
@@ -205,6 +211,11 @@ g_cv.best_params_
 result = g_cv.cv_results_
 # print(result)
 r2_score(y_test, g_cv.best_estimator_.predict(X_tst_scld))
+mae, mse, rmse, r2=compute_metrics(y_test,g_cv.best_estimator_.predict(X_tst_scld))
+print('Mean Absolute Error:', mae)
+print('Mean Squared Error:',mse)
+print('Root Mean Squared Error:', rmse)
+print('R-squared:', r2)
 #%%#
 #Predicting just LOS i.e., 1st record for each patient id with an additional feature of number of offsets.
 test=eicu.head(100)
@@ -271,14 +282,52 @@ g_cv.best_params_
 result = g_cv.cv_results_
 # print(result)
 r2_score(y_test, g_cv.best_estimator_.predict(X_tst_scld))
+mae, mse, rmse, r2=compute_metrics(y_test,g_cv.best_estimator_.predict(X_tst_scld))
+print('Mean Absolute Error:', mae)
+print('Mean Squared Error:',mse)
+print('Root Mean Squared Error:', rmse)
+print('R-squared:', r2)
 #%%#
 # Descriptives  for presentation.
-corrMatrix=rlos_eicu.corr()
-sns.heatmap(corrMatrix, annot=True)
-plt.show()
+rlos_eicu['rlos'].mean()
+rlos_eicu['rlos'].median()
+rlos_eicu['rlos'].max()
+rlos_eicu['rlos'].min()
 
-rlos_eicu.boxplot()
+dataTypeSeries = rlos_eicu.dtypes
+print('Data type of each column of Dataframe :')
+print(dataTypeSeries)
+
+rlos_eicu.groupby('gender')['gender'].count()
+cont_feat=rlos_eicu.drop(['Eyes','GCS Total','Motor','Verbal','apacheadmissiondx'],axis=1)
+corr=cont_feat.corr()
+sns.set(rc={'figure.figsize':(19,15)},font_scale=0.8)
+sns.heatmap(corr, center=0, xticklabels=corr.columns, yticklabels=corr.columns,cmap='coolwarm')
+
+
+ax=rlos_eicu.boxplot()
+ax.set_xticklabels(ax.get_xticklabels(),rotation=90)
 rlos_eicu.hist()
 
 from pandas.plotting import scatter_matrix
 scatter_matrix(rlos_eicu, alpha=0.2, figsize=(11, 7), diagonal='kde')
+
+from sklearn.tree import export_graphviz
+from io import StringIO
+from IPython.display import Image
+import pydot
+
+features=list(X_trn_scld.columns[0:])
+dot_data=StringIO()
+export_graphviz(g_cv.best_estimator_,out_file=dot_data,feature_names=features,filled=True,rounded=True)
+
+graph=pydot.graph_from_dot_data(dot_data.getvalue())
+Image(graph[0].create_png())
+
+feat_imp=g_cv.best_estimator_.feature_importances_
+FI=pd.DataFrame(feat_imp, columns=['vals'])
+FI['Features']=features
+FI.head()
+temp=FI.sort_values(by='vals',ascending=False).reset_index()
+
+sns.catplot(x="vals", y="Features", kind="bar", data=temp,palette=["C0", "C0", "C0"])
