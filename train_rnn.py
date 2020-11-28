@@ -34,8 +34,7 @@ embedding_size = 40
 hidden_size = 40
 
 data_generator = DataGenerator(args.path, args.batch_size, mode='train', use_cuda=args.use_cuda)
-#model = ModelClass(21, embedding_size, hidden_size)
-model = ModelClass(21 )
+model = ModelClass(21, embedding_size, hidden_size)
 if args.use_cuda:
     model = model.cuda()
     model.tensors_to_cuda()
