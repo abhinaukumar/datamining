@@ -1,28 +1,36 @@
+import os
+import torch
+import pandas as pd
 import torch
 import torch.nn as nn
-import torchvision.datasets as dsets
-import torchvision.transforms as transforms
-from torch.autograd import Variable
 import argparse
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+from torch.autograd import Variable
+from torch.utils.data import Dataset
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import MinMaxScaler
 from torch.utils.tensorboard import SummaryWriter
-from torchsummary import summary
-from collections import namedtuple
+from sklearn.metrics import r2_score
+import numpy
+import numpy as np
+#from sklearn.base import BaseEstimator
 
+#from sklearn.preprocessing import CategoricalEncoder
+#from category_encoders import TargetEncoder
+from rnn_utils import *
 
 import datetime
+VERBOSE=1
 # argument parser
-parser = argparse.ArgumentParser(description= 'Data Mining' )
-parser.add_argument( '--batch-size' , type=int, default= 50 , help= 'Number of samples per mini-batch' )
-parser.add_argument( '--epochs' , type=int, default= 12, help= 'Number of epoch to train' )
+parser = argparse.ArgumentParser(description= 'DATA MINING - RLOS' )
+parser.add_argument( '--batch_size' , type=int, default= 1000 , help= 'Number of samples per mini-batch' )
+parser.add_argument( '--epochs' , type=int, default= 2 , help= 'Number of epoch to train' )
 parser.add_argument( '--lr' , type=float, default= 0.02 , help= 'Learning rate' )
 parser.add_argument( '--enable_cuda' , type=int, default= 1 , help= 'Enable Training on GPU ' )
-parser.add_argument( '--loss_func' , type=int, default= 0 , help= 'Select Loss function 0-Crossentropy 1-Adam ' )
-parser.add_argument( '--kernel_sz' , type=int, default= 3 , help= 'Size of Kernel' )
+parser.add_argument( '--kernel_sz' , type=int, default= 1 , help= 'Size of Kernel' )
+#parser.add_argument( '--enable_cuda' , action="store_true" , help= 'Run Training on GPU ' )
 args = parser.parse_args()
-
 
 
 if args.enable_cuda:
@@ -34,459 +42,330 @@ else:
 
 print("device_type:",device)
 
+tb = SummaryWriter(comment="cnn_model")
 
-# Hyper Parameters
-input_size = 784
-num_classes = 10
 num_epochs = args.epochs
 batch_size = args.batch_size
 learning_rate = args.lr
-loss_func = args.loss_func
-reg_lambda = args.reg_lambda
 kernel_sz = args.kernel_sz
-select_dset = args.select_dset
-test_num = args.test_num
-num_bits = args.num_bits
-str_loss = "ADAM"
 
-print("Batch_size:",batch_size);
-print("num_epochs:",num_epochs);
-print("learning_rate:",learning_rate);
-print("Loss_Func:",loss_func);
-print("reg_lambda:",reg_lambda);
+def imputer(dataframe, strategy='zero'):
+    normal_values = {'Eyes': 4, 'GCS Total': 15, 'Heart Rate': 86, 'Motor': 6, 'Invasive BP Diastolic': 56,
+                     'Invasive BP Systolic': 118, 'O2 Saturation': 98, 'Respiratory Rate': 19,
+                     'Verbal': 5, 'glucose': 128, 'admissionweight': 81, 'Temperature (C)': 36,
+                     'admissionheight': 170, "MAP (mmHg)": 77, "pH": 7.4, "FiO2": 0.21}
 
-current_time = str(datetime.datetime.now().timestamp())
-#log_file=test_type+"bs:"+str(batch_size)+"n_ep:"+str(num_epochs)+"lr:"+str(learning_rate)+"Regc:"+str(reg_lambda)+"time:"+current_time
-#log_file="test_num:"+str(test_num)+"dset:"+str(select_dset)
-log_file="batch_size:"+str(batch_size)+"learning_rate:"+str(learning_rate)+"2std"
-print(log_file)
-tb = SummaryWriter(comment=log_file)
-
-def read_data(file_path):
-
-    column_names = ['user-id',
-                    'activity',
-                    'timestamp',
-                    'x-axis',
-                    'y-axis',
-                    'z-axis']
-    df = pd.read_csv(file_path,
-                     header=None,
-                     names=column_names)
-    # Last column has a ";" character which must be removed ...
-    df['z-axis'].replace(regex=True,
-      inplace=True,
-      to_replace=r';',
-      value=r'')
-    # ... and then this column must be transformed to float explicitly
-    df['z-axis'] = df['z-axis'].apply(convert_to_float)
-    # This is very important otherwise the model will not fit and loss
-    # will show up as NAN
-    df.dropna(axis=0, how='any', inplace=True)
-
-    return df
+    if strategy not in ['zero', 'back', 'forward', 'normal']:
+        raise ValueError("impute strategy is invalid")
+    df = dataframe
+    if strategy in ['zero', 'back', 'forward', 'normal']:
+        if strategy == 'zero':
+            df.fillna(value=0, inplace=True)
+        elif strategy == 'back':
+            df.fillna(method='bfill', inplace=True)
+        elif strategy == 'forward':
+            df.fillna(method='ffill', inplace=True)
+        elif strategy == 'normal':
+            df.fillna(value=normal_values, inplace=True)
+        if df.isna().sum().any():
+            df.fillna(value=normal_values, inplace=True)
+        return df
 
 
-def convert_to_float(x):
 
-    try:
-        return np.float(x)
-    except:
-        return np.nan
- 
+df = pd.read_csv('eicu_features.csv')
+#df = imputer(df, strategy='normal')
+df.drop(columns=['Unnamed: 0', 'unitdischargeoffset', 'uniquepid', 'hospitaldischargestatus', 'unitdischargestatus'], inplace=True)
+df.set_index('patientunitstayid', inplace=True)
+y = df['rlos']
+print(y)
+X = df.drop(columns=['rlos'])
+del df
+
+stayids = X.index.unique()
+train_ids, test_ids = train_test_split(stayids, test_size=0.2, random_state=0)
+#stayids = train_ids if mode == 'train' else test_ids
+#n_ids = len(stayids)
+
+X_train = X.loc[train_ids]
+y_train = y.loc[train_ids]
+
+X_test = X.loc[test_ids]
+y_test = y.loc[test_ids]
+print("Test is ")
+print(y_test)
+
+del X
+del y
+
+#if not os.path.exists('models'):
+#    os.mkdir('models')
+
+#encoder_path = os.path.join('models', 'targetencoder.pkl')
+#if os.path.exists(encoder_path):
+#    encoder = pkl.load(open(encoder_path, 'rb'))
+    
+print('Fitting Target Encoder')
+cat_colums = ['Eyes','GCS Total','ethnicity','gender','Verbal','Motor','apacheadmissiondx']
+enc = TargetEncoder()
+#enc = ORIG_TargetEncoder(cols=cat_colums).fit(X_train,y_train)
+
+# transform the datasets
+
+#enc = TargetEncoder()
+enc.fit(X_train, y_train, [ 'gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal'])
+#enc.fit(X_train, y_train, ['apacheadmissiondx', 'ethnicity', 'gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal'])
+X_train_enc = enc.transform(X_train )
+X_test_enc = enc.transform(X_test)
+#pkl.dump(encoder, open(encoder_path, 'wb'))
+#scaler_path = os.path.join('models', 'minmaxscaler.pkl')
+
+print('Fitting MinMaxScaler')
+scaler = MinMaxScaler(feature_range=(-1, 1), copy=True)
+scaler.fit(X_train_enc)
+X_train_s = scaler.transform(X_train_enc)
+X_test_s = scaler.transform(X_test_enc)
+#pkl.dump(scaler, open(scaler_path, 'wb'))
+
+#X_train[X.keys()] = scaler.transform(X)
+#X[X.keys()] = scaler.transform(X)
+#steps_per_epoch = n_ids//batch_size
+
+#pk df = pd.read_csv('eicu_features.csv')
+#pk print(df.columns)
+#pk 
+#pk cat_colums = ['Eyes','GCS Total','ethnicity','gender','Verbal','Motor','apacheadmissiondx']
+#pk 
+#pk X=df.loc[:, df.columns != 'rlos']
+#pk Y=df.loc[:, df.columns == 'rlos']
+#pk 
+#pk 
+#pk #Y=  df['rlos']
+#pk ##print(y.columns)
+#pk #X=  df.drop(['rlos'],axis=1)
+#pk 
+#pk for col in cat_colums:
+#pk 	X[col].astype('category')
+#pk 
+#pk #one hot encoding - creating instance of one-hot-encoder
+#pk #enc = OneHotEncoder(handle_unknown='ignore')
+#pk #for col in cat_colums:
+#pk #	enc_df = pd.DataFrame(enc.fit_transform(X[[col]]).toarray())
+#pk #	X = X.join(dum_df)
+#pk 
+#pk for col in cat_colums:
+#pk 	dum_df = pd.get_dummies(X, columns=[col], prefix=[str(col)+"_Type_is"] )
+#pk 	X=  X.drop([col],axis=1)
+#pk 	#print(dum_df.columns)
+#pk 	#X = X.join(dum_df)
+#pk 	X = (dum_df)
+#pk #ifor col in cat_colums:
+#pk #	X=  X.drop([col],axis=1)
+#pk if VERBOSE==1:
+#pk 	print("FINAL:")
+#pk X=  X.drop(['offset'],axis=1)
+#pk X=  X.drop(['Unnamed: 0'],axis=1)
+#pk X=  X.drop(['patientunitstayid'],axis=1)
+#pk X=  X.drop(['unitdischargeoffset'],axis=1)
+#pk X=  X.drop(['uniquepid'],axis=1)
+#pk X=  X.drop(['hospitaldischargestatus'],axis=1)
+#pk X=  X.drop(['unitdischargestatus'],axis=1)
+#pk #print(X.columns)
+#pk #print(X.head)
+#pk if VERBOSE==1:
+#pk 	for col in X.columns:
+#pk 		print(col)
+#pk #
+#pk #
+#pk #X.to_csv( 'out.csv')
+#pk X=X[0:].values
+#pk Y=Y[0:].values
+#pk print(type(X))
+#pk print(type(Y))
+#pk 
+#pk 
+#pk #Split the data
+#pk X_train, X_test, y_train, y_test = train_test_split(X,Y,test_size = 0.2, random_state=42)
+#pk 
+#pk 
+#pk #Min Max scaling 
+#pk min_max_scaler = MinMaxScaler()
+#pk X_train_s = min_max_scaler.fit_transform(X_train)
+#pk X_test_s = min_max_scaler.transform(X_test)
+
+#X_train_s=X_train_s[0:].values
+print(y_train)
+y_train=y_train.values
+print("After")
+print(y_train)
+
+#X_test_s=X_test_s[0:].values
+y_test=y_test.values
+
+X_train_s=X_train_s.astype(float)
+y_train=y_train.astype(float)
+
+X_test_s=X_test_s.astype(float)
+y_test=y_test.astype(float)
+import copy
+#y_test_orig=copy.deepcopy(y_test)
+#print("shape :",y_test_orig.shape)
+
+X_test_s=torch.tensor(X_test_s,dtype=torch.float32)
+print("shape :",X_test_s.shape)
+X_test_s_tensor = torch.Tensor(X_test_s).reshape(X_test_s.shape[0],X_test_s.shape[1], 1)
+print("shape :",X_test_s_tensor.shape)
+y_test_tensor=torch.tensor(y_test.reshape(y_test.shape[0], 1))
+
+X_train_s=torch.tensor(X_train_s,dtype=torch.float32)
+X_train_s_tensor = torch.Tensor(X_train_s).reshape(X_train_s.shape[0],X_train_s.shape[1], 1)
+#y_train_tensor=torch.tensor(y_train)
+y_train_tensor=torch.tensor(y_train.reshape(y_train.shape[0], 1))
 
 
-# MNIST Dataset (Images and Labels)
-if select_dset==0:
-	train_dataset = dsets.MNIST(root = './data' ,
-	train = True ,
-	transform = transforms.ToTensor(),
-	download = True )
-	
-	test_dataset = dsets.MNIST(root = './data' ,
-	train = False ,
-	transform = transforms.ToTensor())
-else:
 
-	train_dataset = dsets.FashionMNIST(root ='./data',
-	        train = True,
-	        transform = transforms.ToTensor(),
-	        download = True)
-	
-	test_dataset = dsets.FashionMNIST(root ='./data',
-	        train = False,
-	        transform = transforms.ToTensor())
-# Dataset Loader (Input Pipeline)
-dataset_size = (len(train_dataset))
-#indices = list(range(dataset_size))
-#ft_split = int(np.floor(0.5 * dataset_size))
-#train_indice,ft_indice=indices[:ft_split],indices[ft_split:]
-#print(train_indice)
-#print(ft_indice)
-train_loader = torch.utils.data.DataLoader(dataset = train_dataset,
-batch_size = batch_size,
-shuffle = True )
 
-test_loader = torch.utils.data.DataLoader(dataset = test_dataset,
-batch_size = batch_size,
-shuffle = False )
 
-print("Lenght of train dataset is ", len(train_dataset))
-print("Lenght of test dataset is ", len(test_dataset))
-optimizer = torch.optim.SGD(net.parameters(), lr=0.2)
-loss_func = torch.nn.MSELoss()  # this is for regression mean squared loss
+#Y
+train_tensor = torch.utils.data.TensorDataset(X_train_s_tensor, y_train_tensor) 
+train_loader = torch.utils.data.DataLoader(train_tensor,batch_size=batch_size,shuffle=True)
 
+test_tensor = torch.utils.data.TensorDataset(X_test_s_tensor, y_test_tensor) 
+test_loader = torch.utils.data.DataLoader(test_tensor,batch_size=batch_size,shuffle=False)
+
+print("SuccessfuL")
+#
+#
 class MyConvNet (nn.Module):
 	def __init__ (self):
 		super(MyConvNet, self).__init__()
-
 		#cnn1d_1 = nn.Conv1d(in_channels=1, out_channels=1, kernel_size=3, stride=1)
-		self.conv1 = nn.Conv1d( 20 , 32 , kernel_size= 3 , stride= 1 )
-#		self.bn1 = nn.BatchNorm2d( 16 )
+		self.conv1 = nn.Conv1d( 21, 32 , kernel_size= 1 , stride= 1 )
+		#self.bnorm1 .add_module( "bnorm1" , nn.BatchNorm2d(4))
+		#self.bn1 = nn.BatchNorm1d(1 )
 		self.act1 = nn.ReLU(inplace= True )
-		self.pool1 = nn.MaxPool2d(kernel_size= 2 )
-		self.conv2 = nn.Conv1d( 32 , 64 , kernel_size= 3 , stride= 1 ,padding= 1 )
-	#	self.bn2 = nn.BatchNorm2d( 64 )
+		self.conv2 = nn.Conv1d( 32 , 64 , kernel_size= 1 , stride= 1 )
+		#self.bn2 = nn.BatchNorm1d(1 )
 		self.act2 = nn.ReLU(inplace= True )
-		self.pool2 = nn.MaxPool2d(kernel_size= 2 )
-		self.lin1 = nn.Linear( 64 , 1 )
+		self.lin1 = nn.Linear( 64 , 32 )
+		self.lin1_relu = nn.ReLU(inplace=False)
+		self.lin2 = nn.Linear( 32 , 1 )
 	def forward (self, x):
 		c1 = self.conv1(x)
-		b1 = self.bn1(c1)
-		a1 = self.act1(b1)
-		p1 = self.pool1(a1)
-		c2 = self.conv2(p1)
-		b2 = self.bn2(c2)
-		a2 = self.act2(b2)
-		p2 = self.pool2(a2)
-		flt = p2.view(p2.size( 0 ), -1 )
-		l1  = self.lin1(flt)
-		out = self.lin2(l1)
+		#print("c1 shape is ",c1.shape)
+		#b1 = self.bn1(c1)
+		a1 = self.act1(c1)
+		#print("a1 shape is ",a1.shape)
+		#c2 = self.conv2(a1)
+		c2 = self.conv2(c1)
+		#print("c2 shape is ",c2.shape)
+		#b2 = self.bn1(c2)
+		a2 = self.act2(c2)
+		#print("a2 shape is ",a2.shape)
+		#flt = a2.view(a2.size( 0 ), -1 )
+		flt = a2.view(c2.size( 0 ), -1 )
+		#print("flt shape is ",flt.shape)
+		lin1  = self.lin1(flt)
+		#print("lin1 shape is ",lin1.shape)
+		lin1_relu  = self.lin1_relu(lin1)
+		#out  = self.lin2(lin1_relu)
+		out  = self.lin2(lin1)
 		return out
-model=MyConvNet();
 
-###Below modifiy
+print("SuccessfuL")
+model=MyConvNet() 
 model.to(device)
-
-def get_num_correct(pred,label):
-  return pred.argmax(dim=1).eq(labels).sum().item()
-
-#Hooks for conv2 layer weights
-conv2_layer_wt_list=[]
-count=0
-def norm_weights(module,input,output):
-
-  global count;
-  norm_weight=0;
-  for wt in module.weight:
-    norm_weight +=torch.norm(abs(wt))
-    
-  if module.training:
-    conv2_layer_wt_list.append(norm_weight)
-    tb.add_scalar('Conv2 weight Norm vs Epoch', norm_weight, count)
-    count+=1
-    #print("norm_weight :%d\n",count)
-  #conv2_layer_wt_list.append(norm_weight)
-  #tb.add_scalar('Conv2 weight Norm vs Epoch', norm_weight, count)
-  #count+=1;
-  #print("norm_weight :%d\n",count)
+criterion = torch.nn.MSELoss(size_average = False) 
+optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate) 
 
 
-class SaveFeatures():
-    def __init__(self, module):
-        self.hook = module.register_forward_hook(self.hook_fn)
-    def hook_fn(self, module, input, output):
-        self.features = torch.tensor(output,requires_grad=True)
-    def close(self):
-        self.hook.remove()
-
-#Hooks
-#2
-#conv2_handle = model.features.conv2.register_forward_hook(norm_weights)
-#3
-#activation_conv2 = SaveFeatures(model.features.conv2)
-#activation_relu2 = SaveFeatures(model.features.Relu2)
-#activation_bnorm2 = SaveFeatures(model.features.bnorm2)
-# Loss and Optimizer
-# Softmax is internally computed.
-# Set parameters to be updated.
-criterion = nn.CrossEntropyLoss()
-if loss_func==0:
-	print("Loss func is SGD")
-	optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate)
-else:
-	print("Loss func is ADAM")
-	optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
-
-##
-train_target = torch.tensor(train['Target'].values.astype(np.float32))
-train = torch.tensor(train.drop('Target', axis = 1).values.astype(np.float32)) 
-train_tensor = data_utils.TensorDataset(train, train_target) 
-train_loader = data_utils.DataLoader(dataset = train_tensor, batch_size = batch_size, shuffle = True)
-
-
-
-
-
-
-
-
-
+print("SuccessfuL")
 # Training the Model
 #model.train()
-total=0
-correct=0;
 # Training the Model
+model.train()
 total=0
 correct=0;
-#pk for epoch in range(num_epochs):
-#pk 	total_loss=0;
-#pk 	model.train()
-#pk 
-#pk 	for i, (images, labels) in enumerate(train_loader):
-#pk #pk		images = Variable(images.view( -1 , 28 * 28 ))
-#pk 		images = images.to(device)
-#pk 		labels = labels.to(device)
-#pk 		
-#pk 		labels = Variable(labels)
-#pk # Forward + Backward + Optimize
-#pk 		optimizer.zero_grad()
-#pk 		outputs = model(images)
-#pk 		loss = criterion(outputs, labels)
-#pk 		total_loss+= loss.item()
-#pk 
-#pk 		loss_batch_size = labels.size( 0 )
-#pk # (1)
-#pk #the penalty will go here as it should be done before back propagating the gradient
-#pk 		l1_norm=0
-#pk 		a=[]
-#pk 		for name,param in model.named_parameters():
-#pk 			if 'weight' in name:
-#pk 				#print(name)
-#pk 				l1_norm += torch.sum(abs(param))
-#pk 		loss = loss + reg_lambda*(l1_norm )
-#pk 		loss.backward()
-#pk # (2)
-#pk 		optimizer.step()
-#pk # (3)
-#pk 		l11_norm=0
-#pk 		#average_loss=(float (loss.item()/loss_batch_size))
-#pk 		num_image_processed=((epoch*(len(train_dataset)//batch_size))+(i+1))
-#pk 	#	print("loss_batch_size",loss_batch_size,"i is",i,"num_image_processed",num_image_processed);
-#pk 		tb.add_scalar('Average Train loss per batch',loss.item(),num_image_processed )
-#pk 		if ((( i+1)%100) == 0):
-#pk 			print( 'Epoch: [% d/% d], Step: [% d/% d], Loss: %.4f'% (epoch + 1 , num_epochs, i + 1 ,len(train_dataset) // batch_size, loss.data.item()))
-#pk 			
-#pk #	tb.add_scalar('Train loss', loss.item(), epoch)
-#pk 	#tb.add_histogram('conv2_activation', activation_conv2.features, epoch)
-#pk 	#tb.add_histogram('conv2_weight', model.features.conv2.weight, epoch)
-#pk 	#tb.add_histogram('Relu2_activation', activation_relu2.features, epoch)
-#pk 	#tb.add_histogram('bnorm2_activation', activation_bnorm2.features, epoch)
-#pk 
-#pk 
-#pk # Test the Model
-#pk #tb.add_histogram('After Training conv2_activation', activation_conv2.features)
-#pk #tb.add_histogram('After Training Relu2_activation', activation_relu2.features)
-#pk #tb.add_histogram('After Training bnorm2_activation', activation_bnorm2.features)
-#pk 	correct = 0
-#pk 	total = 0
-#pk 	total_loss = 0
-#pk 	for images, labels in train_loader:
-#pk 	#	images = Variable(images.view( -1 , 28 * 28 ))
-#pk 		images = images.to(device)
-#pk 		labels = labels.to(device)
-#pk 		outputs = model(images)	
-#pk 		loss = criterion(outputs, labels)
-#pk 		total_loss+= (loss.item()*images.shape[0])
-#pk 		loss_batch_size = labels.size( 0 )
-#pk 		_, predicted = torch.max(outputs.data, 1 )
-#pk 		total += labels.size( 0 )
-#pk 		correct += (predicted == labels).sum()
-#pk 		accuracy = ( 100 * (correct.to(dtype=torch.float))/total)
-#pk 	print( 'Accuracy of the model on the train images: % d %%' % ( 100 * (correct.to(dtype=torch.float))/total))
-#pk 	#print( '0 Accuracy of the model on the 10000 test images: % d %%' % accuracy)
-#pk 	tb.add_scalar('Train total_loss', (total_loss/len(train_dataset)), epoch)
-#pk 	tb.add_scalar('Train accuracy', accuracy, epoch)
-#pk 
-#pk 	model.eval()
-#pk 	correct = 0
-#pk 	total = 0
-#pk 	test_loss = 0
-#pk 	total_loss = 0
-#pk 	total_test_loss = 0
-#pk 	for images, labels in test_loader:
-#pk 	#	images = Variable(images.view( -1 , 28 * 28 ))
-#pk 		images = images.to(device)
-#pk 		labels = labels.to(device)
-#pk 		outputs = model(images)	
-#pk 		test_loss = criterion(outputs, labels)
-#pk 		total_loss+= (test_loss.item()*images.shape[0])
-#pk 		_, predicted = torch.max(outputs.data, 1 )
-#pk 		total += labels.size( 0 )
-#pk 		correct += (predicted == labels).sum()
-#pk 		accuracy = ( 100 * (correct.to(dtype=torch.float))/total)
-#pk 	print( 'Accuracy of the model on the 10000 test images: % d %%' % ( 100 * (correct.to(dtype=torch.float))/total))
-#pk 	#print( '0 Accuracy of the model on the 10000 test images: % d %%' % accuracy)
-#pk 	tb.add_scalar("Test Accuracy",accuracy,epoch)
-#pk 	tb.add_scalar('Test total_loss', (total_loss/len(test_dataset)), epoch)
-#pk 
-#pk test_accuracy = accuracy
-#pk summary(model, input_size=(1, 28,28 ))
-#pk print("Training ends here and now fine tuning will start")
-#pk PATH = "save_model/best_save_model_4.pt"
-#pk torch.save(model, PATH)
-#pk #model.train()
+iteration=0;
+for epoch in range(num_epochs):
+	total_loss=0;
+	for i, (p_rec, act_out) in enumerate(train_loader):
+		#print("shape :",p_rec.shape)
+	#	print("SuccessfuL")
+#pk		p_rec = Variable(p_rec.view( -1 , 28 * 28 ))
+		p_rec = p_rec.to(device)
+		act_out = act_out.to(device)
+		
+#		act_out = Variable(act_out)
+# Forward + Backward + Optimize
+		optimizer.zero_grad()
+		outputs = model(p_rec)
+	#	print("Model:done")
+		loss = criterion(outputs, act_out.float())
+#the penalty will go here as it should be done before back propagating the gradient
+		loss.backward()
+		total_loss = total_loss + loss.data.item()
+# (2)
+		optimizer.step()
+# (3)
+		if ((( i+1)%100) == 0):
+			print( 'Epoch: [% d/% d], Step: [% d/% d], Loss: %.4f'% (epoch + 1 , num_epochs, i + 1 ,len(train_tensor) // batch_size, loss.data.item()))
+		tb.add_scalar('Train loss', loss.item(),iteration)
+		iteration=iteration+1
+	total_train_loss_per_epoch = (total_loss/(len(train_tensor)))
+	print("Total_train_loss_per_epoch ",total_train_loss_per_epoch)
+	tb.add_scalar('Total Train loss per epoch',total_train_loss_per_epoch ,epoch)
 
-
-#q_model=quantizeModel(model,num_bits);
-
-#pk for num_bits in range(1, 20):
-#pk 	model = torch.load(PATH)
-#pk 	model.eval()
-#pk 	q_model=quantizeModel(model,num_bits);
-#pk 	correct = 0
-#pk 	total = 0
-#pk 	test_loss = 0
-#pk 	total_loss = 0
-#pk 	total_test_loss = 0
-#pk 	for images, labels in test_loader:
-#pk 	#	images = Variable(images.view( -1 , 28 * 28 ))
-#pk 		images = images.to(device)
-#pk 		labels = labels.to(device)
-#pk 		outputs = q_model(images)	
-#pk 		test_loss = criterion(outputs, labels)
-#pk 		total_loss+= (test_loss.item()*images.shape[0])
-#pk 		_, predicted = torch.max(outputs.data, 1 )
-#pk 		total += labels.size( 0 )
-#pk 		correct += (predicted == labels).sum()
-#pk 		accuracy = ( 100 * (correct.to(dtype=torch.float))/total)
-#pk 	tb.add_scalar("Test Accuracy vs quant_bits",accuracy,num_bits)
-#pk 	print( 'Accuracy of the model on the 10000 test images: % d %%' % ( 100 * (correct.to(dtype=torch.float))/total))
-#pk 	test_accuracy_aq = accuracy
-#pk 	print( ' Accuracy of the model on the 10000 test images before quantization: % d %%' % test_accuracy)
-#pk 	print( ' Accuracy of the model on the 10000 test images after quantization: % d %%' % test_accuracy_aq)
-
-
-def min_max(x,cnt=2): return (x.mean()+(cnt*x.std())), (x.mean()-(cnt*x.std()))
-#part 2 draw the histograms
-PATH = "save_model/best_save_model_1.pt"
-model = torch.load(PATH)
 model.eval()
-tb.add_histogram('Before clamping conv1_weight', model.conv1.weight,bins=256)
-tb.add_histogram('Before clamping conv2_weight', model.conv2.weight,bins=256)
-tb.add_histogram('Before clamping lin1_weight', model.lin1.weight,bins=256)
-tb.add_histogram('Before clamping lin2_weight', model.lin2.weight,bins=256)
-for name, layer in enumerate(model.modules()):
-	if  isinstance(layer, nn.Conv2d):
-		print(layer)
-		print('----- model conv Layer max and min',min_max(layer.weight.data))
-		clamp_max,clamp_min = min_max(layer.weight.data)
-		layer.weight.data = layer.weight.data.clamp(min=clamp_min,max=clamp_max)
-	elif  isinstance(layer, nn.Linear):
-		print(layer)
-		print('----- model linear Layer max and min',min_max(layer.weight.data))
-		clamp_max,clamp_min = min_max(layer.weight.data)
-		layer.weight.data = layer.weight.data.clamp(min=clamp_min,max=clamp_max)
-#
-tb.add_histogram('After clamping conv1_weight', model.conv1.weight,bins=256)
-tb.add_histogram('After clamping conv2_weight', model.conv2.weight,bins=256)
-tb.add_histogram('After clamping lin1_weight', model.lin1.weight,bins=256)
-tb.add_histogram('After clamping lin2_weight', model.lin2.weight,bins=256)
-
-q_model=quantizeModel(model,8);
-tb.add_histogram('After quantization conv1_weight', q_model.conv1.weight,bins=256)
-tb.add_histogram('After quantization conv2_weight', q_model.conv2.weight,bins=256)
-tb.add_histogram('After quantization lin1_weight', q_model.lin1.weight,bins=256)
-tb.add_histogram('After quantization lin2_weight', q_model.lin2.weight,bins=256)
-tb.close()
-
-#for name, layer in enumerate(q_model.modules()):
-#	if  isinstance(layer, nn.Conv2d):
-#		print(layer)
-#		print('-----q model Layer max and min',min_max(layer.weight.data))
-#		clamp_max,clamp_min = min_max(layer.weight.data)
-#	elif  isinstance(layer, nn.Linear):
-#		print(layer)
-#		print('----- model Layer Mean and std',min_max(layer.weight.data))
-#		clamp_max,clamp_min = min_max(layer.weight.data)
-
 correct = 0
 total = 0
-test_loss = 0
-total_loss = 0
 total_test_loss = 0
-for images, labels in test_loader:
-#	images = Variable(images.view( -1 , 28 * 28 ))
-	images = images.to(device)
-	labels = labels.to(device)
-	outputs = q_model(images)	
-	test_loss = criterion(outputs, labels)
-	total_loss+= (test_loss.item()*images.shape[0])
-	_, predicted = torch.max(outputs.data, 1 )
-	total += labels.size( 0 )
-	correct += (predicted == labels).sum()
-	accuracy = ( 100 * (correct.to(dtype=torch.float))/total)
-#tb.add_scalar("Test Accuracy vs quant_bits",accuracy,num_bits)
-print( 'Accuracy of the model on the 10000 test images: % .4f %%' % ( 100 * (correct.to(dtype=torch.float))/total))
-test_accuracy_aq = accuracy
-#print( ' Accuracy of the model on the 10000 test images before quantization: % d %%' % test_accuracy)
-print( ' Accuracy of the model on the 10000 test images after quantization: % .4f %%' % test_accuracy_aq)
+y_pred_list=[]
+y_orig_list=[]
+y_test=[]
+MSE_list = torch.empty(0)
+for p_rec, act_out in test_loader:
+#	p_rec = Variable(p_rec.view( -1 , 28 * 28 ))
+	p_rec = p_rec.to(device)
+	act_out = act_out.to(device)
+	outputs = model(p_rec)	
+	loss = criterion(outputs, act_out.float())
+	print("actual")
+	print(act_out.shape)
+	print("model_out")
+	print(outputs.shape)
+	print("R2 score: ", r2_score(act_out.detach().cpu().numpy(),outputs.detach().cpu().numpy()))
+	y_orig_list.append(act_out.squeeze().detach().cpu().numpy())
+	y_pred_list.append(outputs.squeeze().detach().cpu().numpy())
+	#y_pred.append(outputs.detach().cpu().numpy())
+	#y_test.append(act_out.detach().cpu().numpy())
+	#y_pred.append(outputs)
+	#y_test.append(act_out)
+	total_test_loss +=loss
+	print('Test Loss per batch',(loss.data.item()/batch_size))
+#print( 'Epoch: [% d/% d], Step: [% d/% d], Loss: %.4f'% (epoch + 1 , num_epochs, i + 1 ,len(train_tensor) // batch_size, loss.data.item()))
+
+#print("size of test is ",y_test.size())
+#print("size of pred is ",y_test.size())
+print("list")
+print(y_orig_list)
+print("pred_list")
+print(y_pred_list)
+y_orig_list = np.hstack(y_orig_list)
+y_pred_list = np.hstack(y_pred_list)
+#r_square = r2_score(numpy.array(y_orig_list), numpy.array(y_pred_list))
+r_square = r2_score((y_orig_list), (y_pred_list))
+print("R score",r_square)
+y_pred = [a.squeeze().tolist() for a in y_pred_list]
+y_orig = [b.squeeze().tolist() for b in y_orig_list]
+print("after")
+#print(y_orig)
+#mse = mean_squared_error(y_orig, y_pred)
+r_square1 = r2_score(y_orig, y_pred)
+#print("Mean Squared Error :",mse)
+print("R score",r_square1)
+#print("R^2 :",r_square)
 
 
-
-class ShelterOutcomeDataset(Dataset):
-    def __init__(self, X, Y, emb_cols):
-        X = X.copy()
-        self.X1 = X.loc[:,emb_cols].copy().values.astype(np.int64) #categorical columns
-        self.X2 = X.drop(columns=emb_cols).copy().values.astype(np.float32) #numerical columns
-        self.y = Y
-        
-    def __len__(self):
-        return len(self.y)
-    
-    def __getitem__(self, idx):
-        return self.X1[idx], self.X2[idx], self.y[idx]
-
-train_ds = ShelterOutcomeDataset(X_train, y_train, emb_cols)
-valid_ds = ShelterOutcomeDataset(X_val, y_val, emb_cols)
-
-batch_size = 1000
-train_dl = DataLoader(train_ds, batch_size=batch_size,shuffle=True)
-valid_dl = DataLoader(valid_ds, batch_size=batch_size,shuffle=True)
-
-#categorical embedding for columns having more than two values
-emb_c = {n: len(col.cat.categories) for n,col in X.items() if len(col.cat.categories) > 2}
-emb_cols = emb_c.keys() # names of columns chosen for embedding
-emb_szs = [(c, min(50, (c+1)//2)) for _,c in emb_c.items()] #embedding sizes for the chosen columns
-
-
-class ShelterOutcomeModel(nn.Module):
-    def __init__(self, embedding_sizes, n_cont):
-        super().__init__()
-        self.embeddings = nn.ModuleList([nn.Embedding(categories, size) for categories,size in embedding_sizes])
-        n_emb = sum(e.embedding_dim for e in self.embeddings) #length of all embeddings combined
-        self.n_emb, self.n_cont = n_emb, n_cont
-        self.lin1 = nn.Linear(self.n_emb + self.n_cont, 200)
-        self.lin2 = nn.Linear(200, 70)
-        self.lin3 = nn.Linear(70, 5)
-        self.bn1 = nn.BatchNorm1d(self.n_cont)
-        self.bn2 = nn.BatchNorm1d(200)
-        self.bn3 = nn.BatchNorm1d(70)
-        self.emb_drop = nn.Dropout(0.6)
-        self.drops = nn.Dropout(0.3)
-        
-
-    def forward(self, x_cat, x_cont):
-        x = [e(x_cat[:,i]) for i,e in enumerate(self.embeddings)]
-        x = torch.cat(x, 1)
-        x = self.emb_drop(x)
-        x2 = self.bn1(x_cont)
-        x = torch.cat([x, x2], 1)
-        x = F.relu(self.lin1(x))
-        x = self.drops(x)
-        x = self.bn2(x)
-        x = F.relu(self.lin2(x))
-        x = self.drops(x)
-        x = self.bn3(x)
-        x = self.lin3(x)
-        return x
+#print("R2 score: ", r2_score(y_test, y_pred))
+print('Total Test  Loss  {}'.format(total_test_loss/len(test_tensor)))
