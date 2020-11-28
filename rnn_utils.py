@@ -273,12 +273,9 @@ class RETAINModel(nn.Module):
         self.beta_h_init = self.beta_h_init.cpu()
         self.beta_c_init = self.beta_c_init.cpu()
 
-    def forward(self, x, interpret=False, mode='test'):
+    def forward(self, x, interpret=False, mode='train'):
         assert x.size(0) == 1, 'Only one example can be processed at once'
         assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
-
-        # Reverse order of events
-        x = torch.flip(x, (1,))
 
         # Initialize hidden layers
         self.alpha_h_init.fill_(0.0)
@@ -300,11 +297,8 @@ class RETAINModel(nn.Module):
 
         v = v.permute(0, 2, 1) # Make v compatible with 1D convolution again
         v_weighted = (v * beta) * alpha.repeat(1, self.embedding_size, 1)
-        y = self.predictor(v_weighted).squeeze(1) # Reshape to 1 x seq_length
 
-        y = torch.flip(y, (1,))
-        alpha = torch.flip(alpha, (1,))
-        beta = torch.flip(beta, (1,))
+        y = self.predictor(v_weighted).squeeze(1) # Reshape to 1 x seq_length
 
         if mode == 'test':
             y = nn.ReLU()(y)
@@ -326,7 +320,7 @@ class BiRETAINModel(nn.Module):
         self.root_map = nn.Conv1d(input_size, embedding_size, kernel_size=1)
         self.visit_attention_lstm = nn.LSTM(embedding_size, hidden_size, n_recurrent_layers, batch_first=True, bidirectional=True)
         self.visit_attention_map = nn.Conv1d(hidden_size*2, 1, kernel_size=1)
-        self.feature_attention_lstm = nn.LSTM(embedding_size, hidden_size, n_recurrent_layers, batch_first=True, bidirection=True)
+        self.feature_attention_lstm = nn.LSTM(embedding_size, hidden_size, n_recurrent_layers, batch_first=True, bidirectional=True)
         self.feature_attention_map = nn.Conv1d(hidden_size*2, embedding_size, kernel_size=1)
         self.predictor = nn.Conv1d(embedding_size, 1, kernel_size=1)
     
@@ -347,7 +341,7 @@ class BiRETAINModel(nn.Module):
         self.beta_h_init = self.beta_h_init.cpu()
         self.beta_c_init = self.beta_c_init.cpu()
 
-    def forward(self, x, interpret=False, mode='test'):
+    def forward(self, x, interpret=False, mode='train'):
         assert x.size(0) == 1, 'Only one example can be processed at once'
         assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
 
