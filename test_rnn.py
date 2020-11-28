@@ -1,17 +1,20 @@
 import torch
+import numpy as np
 from rnn_utils import *
 import os
+from scipy.io import savemat
+from sklearn.metrics import r2_score
 import argparse
 import progressbar
 
 torch.manual_seed(0)
 np.random.seed(0)
 
-parser = argparse.ArgumentParser(description='Code to train RNN and intepretable RNN models')
+parser = argparse.ArgumentParser(description='Code to test RNN and intepretable RNN models')
 parser.add_argument('--path', help='Path to dataset', type=str, required=True)
 parser.add_argument('--model_path', help='Path to model', type=str, required=True)
-# parser.add_argument('--batch_size', help='Number of examples to use per update', type=int, default=10)
 parser.add_argument('--no_cuda', dest='use_cuda', help='Flag to not use CUDA', action='store_false')
+parser.add_argument('--reverse_input', help='Flag to reverse input', action='store_true')
 parser.set_defaults(use_cuda=True)
 
 args = parser.parse_args()
@@ -40,8 +43,24 @@ with progressbar.ProgressBar(max_value = data_generator.steps_per_epoch, widgets
         xs, ys = data_generator.next()
         y_trues.extend([y.squeeze().cpu().detach().numpy() for y in ys]) 
         for x,y in zip(xs, ys):
-            y_hat = model.forward(x)
+            if args.reverse_input:
+                x = torch.flip(x, (1,))
+            y_hat = model.forward(x, mode='test')
+            if args.reverse_input:
+                y_hat = torch.flip(y_hat, (1,))
             y_preds.append(y_hat.squeeze().cpu().detach().numpy())
 
         bar.update(i)
 
+y_trues = np.hstack(y_trues)
+y_preds = np.hstack(y_preds)
+
+mae = np.mean(np.abs(y_trues - y_preds))
+rmse = np.sqrt(np.mean((y_trues - y_preds)**2))
+r2 = r2_score(y_trues, y_preds)
+
+print("MAE: {}".format(mae))
+print("RMSE: {}".format(rmse))
+print("R2 score: {}".format(r2))
+
+savemat(os.path.join('results', model.__class__.__name__ + ('_reversed' if args.reverse_input else '') + '_results.mat'), {'y_trues': y_trues, 'y_preds': y_preds, 'mae': mae, 'rmse': rmse, 'r2_score': r2})

@@ -5,6 +5,9 @@ logs/
 temp/
 .vscode/
 
+# Ignore results directory
+results/
+
 # Ignore models directory
 models/
 
