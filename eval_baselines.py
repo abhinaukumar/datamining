@@ -33,6 +33,7 @@ def arg_parser():
     parser.add_argument('--dataset_path', help='Path to dataset', type=str, default='data/eicu_features.csv')
     parser.add_argument('--model', help='Model to train', type=str, default='SVR')
     parser.add_argument('--log_file', help='log file name', type=str, default='logs/SVR.log')
+    parser.add_argument('--ignore_time_series', action='store_true', default=True)
     args = parser.parse_args()
     return args
 
@@ -91,13 +92,23 @@ def main(args):
     # read dataset
     print('Reading dataset...')
     df = pd.read_csv(args.dataset_path)
-    df.drop(columns=['Unnamed: 0', 'unitdischargeoffset', 'uniquepid', 'hospitaldischargestatus', 'unitdischargestatus'], inplace=True)
-    df.set_index('patientunitstayid', inplace=True)
+    if args.ignore_time_series:
+        df.drop(columns=['Unnamed: 0', 'unitdischargeoffset', 'uniquepid', 'hospitaldischargestatus', 'unitdischargestatus'], inplace=True)
+        df.set_index('patientunitstayid', inplace=True)
+        df_group = df.groupby('patientunitstayid').first()
+        df_offsets = df.groupby('patientunitstayid')['offset'].size().reset_index()
+        df_offsets.set_index('patientunitstayid', inplace=True)
+        df_offsets.index
+        df = df_group.drop(['offset'],axis=1).join(df_offsets, how='inner')
+    else:
+        df.drop(columns=['Unnamed: 0', 'unitdischargeoffset', 'uniquepid', 'hospitaldischargestatus', 'unitdischargestatus'], inplace=True)
+        df.set_index('patientunitstayid', inplace=True)
     y = df['rlos']
     X = df.drop(columns=['rlos'])
     del df
     assert X.shape[0] == y.shape[0]
-    
+    print(X.shape, y.shape)
+
     # train test split
     stayids = X.index.unique()
     train_idx, test_idx = train_test_split(stayids, test_size=0.2, random_state=0)
@@ -129,16 +140,19 @@ def main(args):
     if args.model == 'RIDGE':
         from sklearn.linear_model import Ridge
         param_grid = {'alpha': np.logspace(-3, 3, 10)}
-        grid = RandomizedSearchCV(Ridge(), param_grid, n_jobs=1, cv=5, verbose=1)  # n_jobs=1 preventing OOM
+        grid = RandomizedSearchCV(Ridge(), param_grid, n_jobs=1, cv=5, verbose=2)  # n_jobs=1 preventing OOM
     elif args.model == 'LASSO':
         from sklearn.linear_model import Lasso
         param_grid = {'alpha': np.logspace(-5, 0, 10)}
-        grid = RandomizedSearchCV(Lasso(), param_grid, n_jobs=1, cv=5, verbose=1)
+        grid = RandomizedSearchCV(Lasso(), param_grid, n_jobs=1, cv=5, verbose=2)
     elif args.model == 'SVR':
-        from sklearn.svm import SVR
-        param_grid = {'C': np.logspace(1, 10, 10, base=2),
-                      'gamma': np.logspace(-8, 1, 10, base=2)}
-        grid = RandomizedSearchCV(SVR(), param_grid, n_jobs=1, cv=5, verbose=1)
+        # from sklearn.svm import SVR
+        # param_grid = {'C': np.logspace(1, 10, 10, base=2),
+        #               'gamma': np.logspace(-8, 1, 10, base=2)}
+        # grid = RandomizedSearchCV(SVR(), param_grid, n_jobs=1, cv=5, verbose=1)
+        from sklearn.svm import LinearSVR
+        param_grid = {'C': np.logspace(-5, 15, 20, base=2)}
+        grid = RandomizedSearchCV(LinearSVR(), param_grid, cv=5, n_jobs=1, verbose=2)
     elif args.model == 'RFR':
         from sklearn.ensemble import RandomForestRegressor
         param_grid = {'n_estimators': [100, 200, 300, 400, 500],
@@ -147,7 +161,7 @@ def main(args):
                 'min_samples_split': [2, 5, 10, 15],
                 'min_samples_leaf': [1, 2, 5],
                 'bootstrap': [True, False]}
-        grid = RandomizedSearchCV(RandomForestRegressor(), param_grid, n_jobs=1, cv=5, verbose=1)
+        grid = RandomizedSearchCV(RandomForestRegressor(), param_grid, n_jobs=1, cv=5, verbose=2)
     elif args.model == 'XGB':
         from xgboost import XGBRegressor
         param_grid = {'max_depth': range(3,12),
@@ -156,7 +170,7 @@ def main(args):
                 'subsample': list([i/10.0 for i in range(6,10)]),
                 'colsample_bytree': list([i/10.0 for i in range(6,10)]),
                 'reg_alpha':[1e-5, 1e-2, 0.1, 1, 100]}
-        grid = RandomizedSearchCV(XGBRegressor(objective ='reg:squarederror'), param_grid, n_jobs=1, cv=5, verbose=1)
+        grid = RandomizedSearchCV(XGBRegressor(objective ='reg:squarederror'), param_grid, n_jobs=1, cv=5, verbose=2)
     elif args.model == 'LGBM': 
         from lightgbm import LGBMRegressor
         param_grid = {'num_leaves': [7, 15, 31, 61, 81, 127],
@@ -172,7 +186,7 @@ def main(args):
                    'reg_lambda': [1e-5, 1e-2, 0.1, 1, 10, 100],
                 #    'objective': [None, 'mse', 'mae', 'huber'],
                    }
-        grid = RandomizedSearchCV(LGBMRegressor(), param_grid, n_jobs=1, verbose=1)
+        grid = RandomizedSearchCV(LGBMRegressor(), param_grid, n_jobs=1, verbose=2)
     
     # fit grid search CV
     print('Hyperparameter tuning on training set...')
@@ -185,7 +199,8 @@ def main(args):
     elif args.model == 'LASSO':
         regressor = Lasso(**best_params)
     elif args.model == 'SVR':
-        regressor = SVR(**best_params)
+        # regressor = SVR(**best_params)
+        regressor = LinearSVR(**best_params)
     elif args.model == 'RFR':
         regressor = RandomForestRegressor(**best_params)
     elif args.model == 'XGB':
