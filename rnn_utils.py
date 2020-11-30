@@ -273,7 +273,7 @@ class RETAINModel(nn.Module):
         self.beta_h_init = self.beta_h_init.cpu()
         self.beta_c_init = self.beta_c_init.cpu()
 
-    def forward(self, x, interpret=False, mode='train'):
+    def forward(self, x, interpret=False, mode='train', reverse_input=False):
         assert x.size(0) == 1, 'Only one example can be processed at once'
         assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
 
@@ -287,15 +287,24 @@ class RETAINModel(nn.Module):
         v = self.root_map(x)
         v = v.permute(0, 2, 1) # Move features back to last axis, for LSTM layer
 
+        if reverse_input:
+            v = torch.flip(v, (1,))
+
         alpha_z, _ = self.visit_attention_lstm(v, (self.alpha_h_init, self.alpha_c_init))
         beta_z, _ = self.feature_attention_lstm(v, (self.beta_h_init, self.beta_c_init))
         alpha_z = alpha_z.permute(0, 2, 1) # Interpret features as channels for 1D convolution
         beta_z = beta_z.permute(0, 2, 1) # Interpret features as channels for 1D convolution
         
         alpha = nn.Sigmoid()(self.visit_attention_map(alpha_z))
-        beta = nn.Sigmoid()(self.feature_attention_map(beta_z))
+        beta = nn.Tanh()(self.feature_attention_map(beta_z))
+
+        if reverse_input:
+            v = torch.flip(v, (1,))
+            alpha = torch.flip(alpha, (1,))
+            beta = torch.flip(beta, (1,))
 
         v = v.permute(0, 2, 1) # Make v compatible with 1D convolution again
+        # v_weighted = torch.cumsum((v * beta) * alpha.repeat(1, self.embedding_size, 1), dim=2)
         v_weighted = (v * beta) * alpha.repeat(1, self.embedding_size, 1)
 
         y = self.predictor(v_weighted).squeeze(1) # Reshape to 1 x seq_length
@@ -362,9 +371,10 @@ class BiRETAINModel(nn.Module):
         beta_z = beta_z.permute(0, 2, 1) # Interpret features as channels for 1D convolution
         
         alpha = nn.Sigmoid()(self.visit_attention_map(alpha_z))
-        beta = nn.Sigmoid()(self.feature_attention_map(beta_z))
+        beta = nn.Tanh()(self.feature_attention_map(beta_z))
 
         v = v.permute(0, 2, 1) # Make v compatible with 1D convolution again
+        # v_weighted = torch.cumsum((v * beta) * alpha.repeat(1, self.embedding_size, 1), dim=2)
         v_weighted = (v * beta) * alpha.repeat(1, self.embedding_size, 1)
         y = self.predictor(v_weighted).squeeze(1) # Reshape to 1 x seq_length
 
