@@ -315,7 +315,14 @@ class RETAINModel(nn.Module):
         if not interpret:
             return y
         else:
-            return y, alpha, beta
+            # Expand tensors to have the shape batch_size x embedding_size x input_size x seq_length
+            beta_exp = beta.unsqueeze(2).repeat(1, 1, self.input_size, 1)
+            alpha_exp = alpha.unsqueeze(1).unsqueeze(1).repeat(1, self.embedding_size, self.input_size, 1)
+            W_emb_exp = self.root_map.weight.unsqueeze(0).repeat(x.size(0), 1, 1, x.size(-1))
+            weight_pre = alpha_exp * beta_exp * W_emb_exp
+
+            weights = torch.conv2d(alpha_exp * beta_exp * W_emb_exp, self.predictor.weight.unsqueeze(-1)).squeeze().permute(0, 2, 1)
+            return y, weights
 
 
 class BiRETAINModel(nn.Module):
@@ -354,7 +361,6 @@ class BiRETAINModel(nn.Module):
         assert x.size(0) == 1, 'Only one example can be processed at once'
         assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
 
-
         # Initialize hidden layers
         self.alpha_h_init.fill_(0.0)
         self.alpha_c_init.fill_(0.0)
@@ -384,6 +390,13 @@ class BiRETAINModel(nn.Module):
         if not interpret:
             return y
         else:
-            return y, alpha, beta
+            # Expand tensors to have the shape batch_size x embedding_size x input_size x seq_length
+            beta_exp = beta.unsqueeze(2).repeat(1, 1, self.input_size, 1)
+            alpha_exp = alpha.unsqueeze(1).unsqueeze(1).repeat(1, self.embedding_size, self.input_size, 1)
+            W_emb_exp = self.root_map.weight.unsqueeze(0).repeat(x.size(0), 1, 1, x.size(-1))
+            weight_pre = alpha_exp * beta_exp * W_emb_exp
+
+            weights = torch.conv2d(alpha_exp * beta_exp * W_emb_exp, self.predictor.weight.unsqueeze(-1)).squeeze().permute(0, 2, 1)
+            return y, weights
 
 models_dict = {'bilstm': BiLSTMModel, 'lstm': LSTMModel, 'retain': RETAINModel, 'biretain': BiRETAINModel}
