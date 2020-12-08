@@ -145,7 +145,7 @@ nursingchart.drop(['itemlabel','nursingchartid'],axis=1,inplace=True)
 nursingchart = nursingchart.pivot_table(index=['patientunitstayid','offset'], columns='itemname', values='itemvalue',aggfunc='first').reset_index()
 logfile.write('Converted key-value pairs to columns in nurseCharting\n')
 
-nursingchart['GCS Total'] = nursingchart['GCS Total'].map({'Unable to score due to medication': np.nan})
+nursingchart['GCS Total'] = nursingchart['GCS Total'].replace({'Unable to score due to medication': np.nan})
 
 logfile.write('Converted key-value pairs to columns in nurseCharting\n')
 
