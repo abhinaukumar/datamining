@@ -186,7 +186,7 @@ lab = pd.read_csv(os.path.join(args.path, 'lab.csv.gz'), compression='gzip')
 logfile.write('Loaded lab\n')
 
 # Only select relevant columns
-lab = lab.[['patientunitstayid', 'labresultoffset', 'labname', 'labresult']]
+lab = lab[['patientunitstayid', 'labresultoffset', 'labname', 'labresult']]
 
 # Only select relevant rows
 lab = lab[lab['patientunitstayid'].isin(stayids)]
