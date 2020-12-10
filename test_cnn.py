@@ -51,11 +51,11 @@ del X
 del y
 
 print('Fitting Target Encoder')
-cat_colums = ['Eyes','GCS Total','ethnicity','gender','Verbal','Motor','apacheadmissiondx']
+cat_columns = ['Eyes','GCS Total','ethnicity','gender','Verbal','Motor','apacheadmissiondx']
 enc = TargetEncoder()
 
 # Transform the datasets
-enc.fit(X_train, y_train, ['gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal'])
+enc.fit(X_train, y_train, cat_columns) 
 X_train_enc = enc.transform(X_train)
 X_test_enc = enc.transform(X_test)
 
