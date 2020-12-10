@@ -1,19 +1,26 @@
 # datamining
 Repo for Data mining project
 
-# Baselines
+## Run Baselines
 
-Naive treat `offset` as the 21th feature. Hyperparameter tuning using `RandomizedSearchCV`.
+> Note: if you cannot run it, change the `python` path in bash files
 
-## Results
+Run baseline models on all the records for each patient:
 
-| Model | MAE | MSE | R_2 | SRCC | PLCC | Time (sec) |
-|-------|-----|-----|-----|------|------|
-| Ridge |1.2528 | 3.5787 | 0.0546 | 0.2295 | 0.2342 | 0.186 |
-| SVR   | | | | |
-| RFR   | | | | |
-| XGBoost | | | | |
-| LightGBM | | | | |      
+```
+bash run_eval_baselines.sh
+```
 
+Run baseline models on the first record plus number of offsets:
+
+```
+bash run_eval_baselines_first.sh
+```
+
+Run baseline models on the last record with time offsets:
+
+```
+bash run_eval_baselines_last.sh
+```
 
 
