@@ -1,10 +1,12 @@
-from rnn_utils import *
+import torch
+import numpy as np
+from nn_utils import DataGenerator, save_model
+from nn_models import BiLSTMModel
 import os
 import argparse
-import progressbar
 import time
 import copy
-from fed_utils import *
+from fed_utils import LocalUpdate, FedAvg
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -73,5 +75,4 @@ for iter in range(args.epochs):
 
 lr_base_t1 = time.time()
 print(time.localtime(lr_base_t1))
-save_model(model_glob, 'fedmodels', {'embedding_size': embedding_size, 'hidden_size': hidden_size, 'lr': args.lr, 'epochs':args.epochs, 'batch_size':args.batch_size, 'reversed':args.reverse_input})
-
+save_model(model_glob, 'fedmodels', {'embedding_size': embedding_size, 'hidden_size': hidden_size, 'lr': args.lr, 'epochs': args.epochs, 'batch_size': args.batch_size, 'reversed': args.reverse_input})

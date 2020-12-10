@@ -1,7 +1,5 @@
 import copy
 import torch
-from torch import nn
-from rnn_utils import *
 
 
 def FedAvg(w):
@@ -47,4 +45,3 @@ class LocalUpdate(object):
             optimizer.step()
             batch_loss.append(loss)
         return net.state_dict(), sum(batch_loss)/len(batch_loss)
-
