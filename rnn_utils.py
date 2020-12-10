@@ -377,9 +377,6 @@ class BiRETAINModel(nn.Module):
             return y, alpha, beta
 
 
-
-
-
 class MyConvNet_kvar(nn.Module):
     def __init__(self, input_size ):
         super(MyConvNet_kvar, self).__init__()
@@ -400,163 +397,16 @@ class MyConvNet_kvar(nn.Module):
 
     def forward(self, x, mode='train'):
         assert x.size(0) == 1, 'Only one example can be processed at once'
-        #assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
         x1 =  x.permute(0, 2, 1) # Interpret features as channels for 1D convolution
         c1 =  self.conv1(x1)
         c2 =  self.conv2(c1)
         c3 =  self.conv3(c2)
-        #bn1 =  self.bn1(c2)
         a1 =  self.act1(c3)
         
         lin1 =  self.lin1(a1)
         y = self.lin2(lin1).squeeze(1) # Reshape to 1 x seq_length
 
-
         return y
-
-
-
-class MyConvNet_k1(nn.Module):
-    def __init__(self, input_size ):
-        super(MyConvNet_k1, self).__init__()
-        self.input_size = input_size
-
-        self.conv1 = nn.Conv1d(input_size, 32, kernel_size=1)
-        self.conv2 = nn.Conv1d(32, 64, kernel_size=1)
-        self.conv3 = nn.Conv1d(64, 128, kernel_size=1)
-        self.act1 = nn.ReLU(inplace= True )
-        self.lin1 = nn.Conv1d( 128,64,kernel_size=1)
-        self.lin2 = nn.Conv1d( 64,1,kernel_size=1)
-
-    def tensors_to_cuda(self):
-        pass
-
-    def tensors_to_cpu(self):
-        pass
-
-    def forward(self, x, mode='train'):
-        assert x.size(0) == 1, 'Only one example can be processed at once'
-        #assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
-        x1 =  x.permute(0, 2, 1) # Interpret features as channels for 1D convolution
-        c1 =  self.conv1(x1)
-        c2 =  self.conv2(c1)
-        c3 =  self.conv3(c2)
-        #bn1 =  self.bn1(c2)
-        a1 =  self.act1(c3)
-        
-        lin1 =  self.lin1(a1)
-        y = self.lin2(lin1).squeeze(1) # Reshape to 1 x seq_length
-
-
-        return y
-
-
-class MyConvNet_k3(nn.Module):
-    def __init__(self, input_size ):
-        super(MyConvNet_k3, self).__init__()
-        self.input_size = input_size
-
-        self.conv1 = nn.Conv1d(input_size, 32, kernel_size=3,padding=1)
-        self.conv2 = nn.Conv1d(32, 64, kernel_size=3,padding=1)
-        self.conv3 = nn.Conv1d(64, 128, kernel_size=3,padding=1)
-        self.act1 = nn.ReLU(inplace= True )
-        self.lin1 = nn.Conv1d( 128,64,kernel_size=3,padding=1)
-        self.lin2 = nn.Conv1d( 64,1,kernel_size=3,padding=1)
-
-    def tensors_to_cuda(self):
-        pass
-
-    def tensors_to_cpu(self):
-        pass
-
-    def forward(self, x, mode='train'):
-        assert x.size(0) == 1, 'Only one example can be processed at once'
-        #assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
-        x1 =  x.permute(0, 2, 1) # Interpret features as channels for 1D convolution
-        c1 =  self.conv1(x1)
-        c2 =  self.conv2(c1)
-        c3 =  self.conv3(c2)
-        #bn1 =  self.bn1(c2)
-        a1 =  self.act1(c3)
-        
-        lin1 =  self.lin1(a1)
-        y = self.lin2(lin1).squeeze(1) # Reshape to 1 x seq_length
-
-
-        return y
-
-
-
-class MyConvNet_k15(nn.Module):
-    def __init__(self, input_size ):
-        super(MyConvNet_k15, self).__init__()
-        self.input_size = input_size
-
-        self.conv1 = nn.Conv1d(input_size, 32, kernel_size=15,padding=7)
-        self.conv2 = nn.Conv1d(32, 64, kernel_size=15,padding=7)
-        self.conv3 = nn.Conv1d(64, 128, kernel_size=15,padding=7)
-        self.act1 = nn.ReLU(inplace= True )
-        self.lin1 = nn.Conv1d( 128,64,kernel_size=15,padding=7)
-        self.lin2 = nn.Conv1d( 64,1,kernel_size=15,padding=7)
-
-    def tensors_to_cuda(self):
-        pass
-
-    def tensors_to_cpu(self):
-        pass
-
-    def forward(self, x, mode='train'):
-        assert x.size(0) == 1, 'Only one example can be processed at once'
-        #assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
-        x1 =  x.permute(0, 2, 1) # Interpret features as channels for 1D convolution
-        c1 =  self.conv1(x1)
-        c2 =  self.conv2(c1)
-        c3 =  self.conv3(c2)
-        #bn1 =  self.bn1(c2)
-        a1 =  self.act1(c3)
-        
-        lin1 =  self.lin1(a1)
-        y = self.lin2(lin1).squeeze(1) # Reshape to 1 x seq_length
-
-
-        return y
-
-
-
-class MyConvNet_kgen(nn.Module):
-    def __init__(self, input_size ,k_size=3):
-        super(MyConvNet, self).__init__()
-        self.input_size = input_size
-
-        self.conv1 = nn.Conv1d(input_size, 32, kernel_size=k_size,padding=(int(k_size-1/2)))
-        self.conv2 = nn.Conv1d(32, 64, kernel_size=k_size,padding=(int(k_size-1/2)))
-        self.conv3 = nn.Conv1d(64, 128, kernel_size=k_size,padding=(int(k_size-1/2)))
-        self.act1 = nn.ReLU(inplace= True )
-        self.lin1 = nn.Conv1d( 128,64,kernel_size=k_size,padding=(int(k_size-1/2)))
-        self.lin2 = nn.Conv1d( 64,1,kernel_size=k_size,padding=(int(k_size-1/2)))
-
-    def tensors_to_cuda(self):
-        pass
-
-    def tensors_to_cpu(self):
-        pass
-
-    def forward(self, x, mode='train'):
-        assert x.size(0) == 1, 'Only one example can be processed at once'
-        #assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
-        x1 =  x.permute(0, 2, 1) # Interpret features as channels for 1D convolution
-        c1 =  self.conv1(x1)
-        c2 =  self.conv2(c1)
-        c3 =  self.conv3(c2)
-        #bn1 =  self.bn1(c2)
-        a1 =  self.act1(c3)
-        
-        lin1 =  self.lin1(a1)
-        y = self.lin2(lin1).squeeze(1) # Reshape to 1 x seq_length
-
-
-        return y
-
 
 
 class MyConvNet_base(nn.Module):
@@ -566,8 +416,8 @@ class MyConvNet_base(nn.Module):
 
         self.conv1 = nn.Conv1d(input_size, 32, kernel_size=1)
         self.conv2 = nn.Conv1d(32, 64, kernel_size=1)
-        self.act1 = nn.ReLU(inplace= True )
-        self.lin1 = nn.Conv1d(64,1,kernel_size=1)
+        self.act1 = nn.ReLU(inplace=True)
+        self.lin1 = nn.Conv1d(64, 1, kernel_size=1)
 
     def tensors_to_cuda(self):
         pass
@@ -584,58 +434,10 @@ class MyConvNet_base(nn.Module):
 
         return y
 
-#class MyConvNet(nn.Module):
-#    def __init__(self, input_size ):
-#        super(MyConvNet, self).__init__()
-#        self.input_size = input_size
-#
-#        self.conv1 = nn.Conv1d(input_size, 32, kernel_size=3,padding=1)
-#        self.conv2 = nn.Conv1d(32, 64, kernel_size=3,padding=1)
-#        self.conv3 = nn.Conv1d(64, 128, kernel_size=3,padding=1)
-#        self.act1 = nn.ReLU(inplace= True )
-#        self.conv4 = nn.Conv1d(128, 256,kernel_size=3,padding=1)
-#        self.act2 = nn.ReLU(inplace= True )
-#        self.conv5 = nn.Conv1d(256, 128,kernel_size=3,padding=1)
-#        self.act3 = nn.ReLU(inplace= True )
-#        #self.bn1 = nn.BatchNorm1d(1 )
-#	#self.bn1 = nn.BatchNorm1d(1 )
-#        self.lin1 = nn.Conv1d( 128,1,kernel_size=1)
-#	#self.act1 = nn.ReLU(inplace= True )
-#	#self.lin1 = nn.Linear( 64 , 32 )
-#	#self.lin2 = nn.Linear( 32 , 1 )
-#
-#    def tensors_to_cuda(self):
-#        pass
-#
-#    def tensors_to_cpu(self):
-#        pass
-#
-#    def forward(self, x, mode='train'):
-#        assert x.size(0) == 1, 'Only one example can be processed at once'
-#        #assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
-##        x=torch.tensor(x)
-#        x1 =  x.permute(0, 2, 1) # Interpret features as channels for 1D convolution
-#        c1 =  self.conv1(x1)
-#        c2 =  self.conv2(c1)
-#        c3 =  self.conv3(c2)
-#        #bn1 =  self.bn1(c2)
-#        a1 =  self.act1(c3)
-#        c4 =  self.conv4(a1)
-#        a2 =  self.act1(c4)
-#        c5 =  self.conv5(a2)
-#        a3 =  self.act1(c5)
-#        
-#        #y = self.lin1(c2).squeeze(1) # Reshape to 1 x seq_length
-#        y = self.lin1(a3).squeeze(1) # Reshape to 1 x seq_length
-#
-#        #if mode == 'test':
-#        #    y = nn.ReLU()(y)
-#
-#        return y
 
-class MyConvNet_k1final(nn.Module):
+class MyConvNet_k1(nn.Module):
     def __init__(self, input_size ):
-        super(MyConvNet_k1final, self).__init__()
+        super(MyConvNet_k1, self).__init__()
         self.input_size = input_size
 
         self.conv1 = nn.Conv1d(input_size, 32, kernel_size=1)
@@ -660,9 +462,11 @@ class MyConvNet_k1final(nn.Module):
 
 
         return y
-class MyConvNet_k15final(nn.Module):
+
+
+class MyConvNet_k15(nn.Module):
     def __init__(self, input_size ):
-        super(MyConvNet_k15final, self).__init__()
+        super(MyConvNet_k15, self).__init__()
         self.input_size = input_size
 
         self.conv1 = nn.Conv1d(input_size, 32, kernel_size=15,padding=7)
@@ -690,22 +494,16 @@ class MyConvNet_k15final(nn.Module):
 
         return y
 
-class MyConvNet_k3final(nn.Module):
+class MyConvNet_k3(nn.Module):
     def __init__(self, input_size ):
-        super(MyConvNet_k3final, self).__init__()
+        super(MyConvNet_k3, self).__init__()
         self.input_size = input_size
 
-        self.conv1 = nn.Conv1d(input_size, 32, kernel_size=3,padding=1)
-        self.conv2 = nn.Conv1d(32, 64, kernel_size=3,padding=1)
-        self.conv3 = nn.Conv1d(64, 128, kernel_size=3,padding=1)
-        self.act1 = nn.ReLU(inplace= True )
-        #self.bn1 = nn.BatchNorm1d(1 )
-	#self.bn1 = nn.BatchNorm1d(1 )
-        #pk change nowself.lin1 = nn.Conv1d( 128,1,kernel_size=15,padding=7)
-        self.lin1 = nn.Conv1d( 128,1,kernel_size=15,padding=7)
-	#self.act1 = nn.ReLU(inplace= True )
-	#self.lin1 = nn.Linear( 64 , 32 )
-	#self.lin2 = nn.Linear( 32 , 1 )
+        self.conv1 = nn.Conv1d(input_size, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv1d(32, 64, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv1d(64, 128, kernel_size=3, padding=1)
+        self.act1 = nn.ReLU(inplace=True)
+        self.lin1 = nn.Conv1d(128, 1, kernel_size=15, padding=7)
 
     def tensors_to_cuda(self):
         pass
@@ -715,20 +513,13 @@ class MyConvNet_k3final(nn.Module):
 
     def forward(self, x, mode='train'):
         assert x.size(0) == 1, 'Only one example can be processed at once'
-        #assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
-#        x=torch.tensor(x)
         x1 =  x.permute(0, 2, 1) # Interpret features as channels for 1D convolution
         c1 =  self.conv1(x1)
         c2 =  self.conv2(c1)
         c3 =  self.conv3(c2)
-        #bn1 =  self.bn1(c2)
         a1 =  self.act1(c3)
         
-        #y = self.lin1(c2).squeeze(1) # Reshape to 1 x seq_length
         y = self.lin1(a1).squeeze(1) # Reshape to 1 x seq_length
-
-        #if mode == 'test':
-        #    y = nn.ReLU()(y)
 
         return y
 
@@ -740,14 +531,8 @@ class MyConvNet_k3e(nn.Module):
         self.conv1 = nn.Conv1d(input_size, 32, kernel_size=3,padding=1)
         self.conv2 = nn.Conv1d(32, 64, kernel_size=3,padding=1)
         self.conv3 = nn.Conv1d(64, 128, kernel_size=3,padding=1)
-        self.act1 = nn.ReLU(inplace= True )
-        #self.bn1 = nn.BatchNorm1d(1 )
-	#self.bn1 = nn.BatchNorm1d(1 )
-        #pk change nowself.lin1 = nn.Conv1d( 128,1,kernel_size=15,padding=7)
-        self.lin1 = nn.Conv1d( 128,1,kernel_size=3,padding=1)
-	#self.act1 = nn.ReLU(inplace= True )
-	#self.lin1 = nn.Linear( 64 , 32 )
-	#self.lin2 = nn.Linear( 32 , 1 )
+        self.act1 = nn.ReLU(inplace=True)
+        self.lin1 = nn.Conv1d(128, 1, kernel_size=3, padding=1)
 
     def tensors_to_cuda(self):
         pass
@@ -755,22 +540,15 @@ class MyConvNet_k3e(nn.Module):
     def tensors_to_cpu(self):
         pass
 
-    def forward(self, x, mode='train'):
+    def forward(self, x):
         assert x.size(0) == 1, 'Only one example can be processed at once'
-        #assert mode in ['train', 'test'], 'Invalid mode. Must be "train" or "test"'
-#        x=torch.tensor(x)
         x1 =  x.permute(0, 2, 1) # Interpret features as channels for 1D convolution
         c1 =  self.conv1(x1)
         c2 =  self.conv2(c1)
         c3 =  self.conv3(c2)
-        #bn1 =  self.bn1(c2)
         a1 =  self.act1(c3)
         
-        #y = self.lin1(c2).squeeze(1) # Reshape to 1 x seq_length
         y = self.lin1(a1).squeeze(1) # Reshape to 1 x seq_length
-
-        #if mode == 'test':
-        #    y = nn.ReLU()(y)
 
         return y
 
@@ -782,4 +560,4 @@ class SaveFeatures():
     def close(self):
         self.hook.remove()
 
-models_dict = {'cnn_base': MyConvNet_base,'cnn_k15': MyConvNet_k15final,'cnn_k3e': MyConvNet_k3e,'cnn_k3': MyConvNet_k3final,'cnn_k1': MyConvNet_k1final,'cnn_kvar': MyConvNet_kvar, 'bilstm': BiLSTMModel, 'lstm': LSTMModel, 'retain': RETAINModel, 'biretain': BiRETAINModel}
+models_dict = {'cnn_base': MyConvNet_base, 'cnn_k15': MyConvNet_k15, 'cnn_k3e': MyConvNet_k3e, 'cnn_k3': MyConvNet_k3, 'cnn_k1': MyConvNet_k1, 'cnn_kvar': MyConvNet_kvar, 'bilstm': BiLSTMModel, 'lstm': LSTMModel, 'retain': RETAINModel, 'biretain': BiRETAINModel}
