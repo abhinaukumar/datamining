@@ -18,7 +18,7 @@ parser.add_argument('--reverse_input', help='Flag to reverse input', action='sto
 parser.add_argument('--tag', help='Tag to add to results file name', type=str, default='')
 parser.set_defaults(use_cuda=True)
 
-args = parser.parse_args(['--path', 'mini_eicu_features.csv'])
+args = parser.parse_args(['--path', 'eicu_features.csv.gz'])
 assert os.path.exists(args.path), 'Path to dataset does not exist'
 # assert os.path.exists(args.model_path), 'Path to model does not exist'
 
