@@ -1,6 +1,9 @@
 # Ignore data files
 data/
 
+# Ignore logs
+logs/
+
 # Ignore VSCode files
 .vscode/
 
