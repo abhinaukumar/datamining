@@ -53,11 +53,14 @@ for epoch in range(args.epochs):
             loss = 0.0
             for x,y in zip(xs, ys):
                 if args.reverse_input:
-                    x = torch.flip(x, (1,))
-                y_hat = model.forward(x)
-                if args.reverse_input:
-                    y_hat = torch.flip(y_hat, (1,))
-
+                    if args.model != 'retain':
+                        x = torch.flip(x, (1,))
+                        y_hat = model.forward(x)
+                        y_hat = torch.flip(y_hat, (1,))
+                    else:
+                        y_hat = model.forward(x, reverse_input=True)
+                else:
+                    y_hat = model.forward(x)
                 loss += torch.mean((y - y_hat)**2) # MSE
                 y_preds.append(y_hat)
             loss /= args.batch_size
