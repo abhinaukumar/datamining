@@ -1,4 +1,16 @@
+import copy
+import torch
+from torch import nn
 from rnn_utils import *
+
+
+def FedAvg(w):
+    w_avg = copy.deepcopy(w[0])
+    for k in w_avg.keys():
+        for i in range(1, len(w)):
+            w_avg[k] += w[i][k]
+        w_avg[k] = torch.div(w_avg[k], len(w))
+    return w_avg
 
 
 class LocalUpdate(object):
@@ -7,10 +19,9 @@ class LocalUpdate(object):
         self.steps_per_epoch = dataset.steps_per_epoch
         self.dataset = dataset
 
-
     def train(self, net):
         net.train()
-        # train and update
+        # Train and update
         optimizer = torch.optim.Adam(net.parameters(), lr=self.args.lr)
         batch_loss = []
         for iter in range(self.steps_per_epoch):

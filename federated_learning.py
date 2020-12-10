@@ -3,9 +3,8 @@ import os
 import argparse
 import progressbar
 import time
-from Update import *
 import copy
-from Fed import *
+from fed_utils import *
 import warnings
 warnings.filterwarnings('ignore')
 
