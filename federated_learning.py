@@ -86,25 +86,4 @@ lr_base_t1 = time.time()
 print(time.localtime(lr_base_t1))
 save_model(model_glob, 'fedmodels', {'embedding_size': embedding_size, 'hidden_size': hidden_size, 'lr': args.lr, 'epochs':args.epochs, 'batch_size':args.batch_size, 'reversed':args.reverse_input})
 
-# path = 'mini_eicu_features.csv'
-# data_generator = DataGenerator(path, args.batch_size, mode='test', use_cuda=args.use_cuda)
-# y_trues = []
-# y_preds = []
-# for i in range(data_generator.steps_per_epoch):
-#     xs, ys = data_generator.next()
-#     y_trues.extend([y.squeeze().cpu().detach().numpy() for y in ys])
-#     for x,y in zip(xs, ys):
-#         y_hat = model_glob.forward(x,'test')
-#         y_preds.append(y_hat.squeeze().cpu().detach().numpy())
-#
-#
-# y_trues = np.hstack(y_trues)
-# y_preds = np.hstack(y_preds)
-#
-# mae = np.mean(np.abs(y_trues - y_preds))
-# rmse = np.sqrt(np.mean((y_trues - y_preds)**2))
-# r2 = model_glob(y_trues, y_preds)
-#
-# print("MAE: {}".format(mae))
-# print("RMSE: {}".format(rmse))
-# print("R2 score: {}".format(r2))
+
