@@ -97,15 +97,8 @@ stayids = patients['patientunitstayid']
 patients.to_csv(os.path.join(args.path, 'patient_features.csv.gz'), compression='gzip')
 del patients
 
-'''
-patients = pd.read_csv(os.path.join(args.path, 'patient_features.csv.gz'), compression='gzip')
-stayids = patients['patientunitstayid']
-
-del patients
-'''
-
 # Read nurseCharting.csv
-nursingchart = pd.read_csv(os.path.join(args.path, 'nurseCharting.csv'))
+nursingchart = pd.read_csv(os.path.join(args.path, 'nurseCharting.csv.gz'), compression='gzip')
 
 logfile.write('Loaded nurseCharting\n')
 
@@ -145,7 +138,7 @@ nursingchart.drop(['itemlabel','nursingchartid'],axis=1,inplace=True)
 nursingchart = nursingchart.pivot_table(index=['patientunitstayid','offset'], columns='itemname', values='itemvalue',aggfunc='first').reset_index()
 logfile.write('Converted key-value pairs to columns in nurseCharting\n')
 
-nursingchart['GCS Total'] = nursingchart['GCS Total'].map({'Unable to score due to medication': np.nan})
+nursingchart['GCS Total'] = nursingchart['GCS Total'].replace({'Unable to score due to medication': np.nan})
 
 logfile.write('Converted key-value pairs to columns in nurseCharting\n')
 
@@ -170,10 +163,8 @@ nursingchart['offset'] = (nursingchart['offset']/60).astype('int')
 nursingchart.groupby(['patientunitstayid', 'offset']).apply(lambda x: x.fillna(x.mean()))
 # For each offset, only choose last value.
 nursingchart.drop_duplicates(['patientunitstayid', 'offset'], keep='last', inplace=True)
-# Impute missing values with "typical values"
-nursingchart.fillna(value=impute_values, inplace=True)
 
-logfile.write('Binned and imputed nurseCharting features')
+logfile.write('Binned nurseCharting features')
 
 nursingchart.to_csv(os.path.join(args.path, 'nursingchart_features.csv.gz'), compression='gzip')
 
@@ -186,7 +177,7 @@ lab = pd.read_csv(os.path.join(args.path, 'lab.csv.gz'), compression='gzip')
 logfile.write('Loaded lab\n')
 
 # Only select relevant columns
-lab = lab.[['patientunitstayid', 'labresultoffset', 'labname', 'labresult']]
+lab = lab[['patientunitstayid', 'labresultoffset', 'labname', 'labresult']]
 
 # Only select relevant rows
 lab = lab[lab['patientunitstayid'].isin(stayids)]
@@ -233,11 +224,6 @@ lab.groupby(['patientunitstayid', 'offset']).apply(lambda x: x.fillna(x.mean()))
 # For each offset, only choose last value.
 lab.drop_duplicates(['patientunitstayid', 'offset'], keep='last', inplace=True)
 
-# Impute missing values with "typical values"
-lab.fillna(value=impute_values, inplace=True)
-
-logfile.write('Binned and imputed features from lab\n')
-
 lab.to_csv(os.path.join(args.path, 'lab_features.csv.gz'), compression='gzip')
 
 logfile.write('Wrote lab features to CSV\n')
@@ -249,21 +235,24 @@ patients = pd.read_csv(os.path.join(args.path, 'patient_features.csv.gz'), compr
 nursingchart = pd.read_csv(os.path.join(args.path, 'nursingchart_features.csv.gz'), compression='gzip')
 lab = pd.read_csv(os.path.join(args.path, 'lab_features.csv.gz'), compression='gzip')
 
-temp = pd.merge(nc, lab, how='outer', on=['patientunitstayid', 'offset']).sort_values(by=['patientunitstayid', 'offset'])
+temp = pd.merge(nursingchart, lab, how='outer', on=['patientunitstayid', 'offset']).sort_values(by=['patientunitstayid', 'offset'])
 all_features = pd.merge(temp, patients, how='outer', on='patientunitstayid').sort_values(by=['patientunitstayid', 'offset'])
-
-# Impute missing values with "typical values"
-all_features.fillna(value=impute_values, inplace=True)
 
 # Filter by number of records
 all_features = all_features.groupby('patientunitstayid').filter(lambda x: (x.shape[0] >= 15 and x.shape[0] <= 200))
 
+# Save unimputed data for missing data analysis
+all_features.to_csv(os.path.join(args.path, 'eicu_features_unimputed.csv.gz'), compression='gzip')
+
+# Impute missing values with "typical values"
+all_features.fillna(value=impute_values, inplace=True)
+
 # Compute RLOS
-all_features['rlos'] = all_features['unitdischargeoffset']/1440 - res['offset']/24
+all_features['rlos'] = all_features['unitdischargeoffset']/1440 - all_features['offset']/24
 
 # Only choose records having positive offsets and RLOS
 all_features = all_features[all_features['offset'] > 0]
-all_features = all_features[(all_features['unitdischargeoffset'] > 0) & (res['rlos'] > 0)]
+all_features = all_features[(all_features['unitdischargeoffset'] > 0) & (all_features['rlos'] > 0)]
 
 # Write features to CSV
 all_features.to_csv(os.path.join(args.path, 'eicu_features.csv.gz'), compression='gzip')
