@@ -1,9 +1,12 @@
 import torch
-from rnn_utils import *
+import numpy as np
+import pandas as pd
+from nn_utils import TargetEncoder, save_model
+from nn_models import models_dict
 import os
 import argparse
 import progressbar
-from torch.utils.data import Dataset
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 
 torch.manual_seed(0)
@@ -56,7 +59,7 @@ del X
 del y
 
 print('Fitting Target Encoder')
-cat_columns = ['Eyes','GCS Total','ethnicity','gender','Verbal','Motor','apacheadmissiondx']
+cat_columns = ['Eyes', 'GCS Total', 'ethnicity', 'gender', 'Verbal', 'Motor', 'apacheadmissiondx']
 enc = TargetEncoder()
 
 # Transform the datasets
@@ -79,7 +82,7 @@ y_train = y_train.astype(float)
 
 X_test_s = X_test_s.astype(float)
 y_test = y_test.astype(float)
-X_test_s = torch.tensor(X_test_s,dtype=torch.float32)
+X_test_s = torch.tensor(X_test_s, dtype=torch.float32)
 print("shape :", X_test_s.shape)
 X_test_s_tensor = torch.Tensor(X_test_s).reshape(X_test_s.shape[0], X_test_s.shape[1], 1)
 print("shape :", X_test_s_tensor.shape)
@@ -89,10 +92,10 @@ X_train_s = torch.tensor(X_train_s, dtype=torch.float32)
 X_train_s_tensor = torch.Tensor(X_train_s).reshape(X_train_s.shape[0], X_train_s.shape[1], 1)
 y_train_tensor = torch.tensor(y_train.reshape(y_train.shape[0], 1))
 
-train_tensor = torch.utils.data.TensorDataset(X_train_s_tensor, y_train_tensor) 
+train_tensor = torch.utils.data.TensorDataset(X_train_s_tensor, y_train_tensor)
 train_loader = torch.utils.data.DataLoader(train_tensor, batch_size=batch_size, shuffle=True)
 
-test_tensor = torch.utils.data.TensorDataset(X_test_s_tensor, y_test_tensor) 
+test_tensor = torch.utils.data.TensorDataset(X_test_s_tensor, y_test_tensor)
 test_loader = torch.utils.data.DataLoader(test_tensor, batch_size=batch_size, shuffle=False)
 
 print("Successful")
@@ -108,13 +111,13 @@ for epoch in range(args.epochs):
     tot_loss = 0.0
 
     print("Epoch {}/{}".format(epoch+1, args.epochs))
-    with progressbar.ProgressBar(max_value = 2500000, widgets=widgets) as bar:
+    with progressbar.ProgressBar(max_value=2500000, widgets=widgets) as bar:
         for i, (x, y) in enumerate(train_loader):
             x = x.cuda()
             y = y.cuda()
             y_hat = model.forward(x)
 
-            loss = torch.mean((y - y_hat)**2) # MSE
+            loss = torch.mean((y - y_hat)**2)  # MSE
 
             opt.zero_grad()
             loss.backward()
@@ -125,4 +128,3 @@ for epoch in range(args.epochs):
             bar.update(i, Error=tot_loss/(i+1))
 
 save_model(model, 'models', {'embedding_size': embedding_size, 'hidden_size': hidden_size, 'lr': args.lr, 'epochs': args.epochs, 'batch_size': batch_size})
-

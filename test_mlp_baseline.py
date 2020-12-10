@@ -1,8 +1,12 @@
 import torch
 import numpy as np
-from rnn_utils import *
+import pandas as pd
+import pickle as pkl
+from nn_utils import TargetEncoder
 import os
 from scipy.io import savemat
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
 import argparse
 import progressbar
@@ -51,11 +55,11 @@ del X
 del y
 
 print('Fitting Target Encoder')
-cat_columns = ['Eyes','GCS Total','ethnicity','gender','Verbal','Motor','apacheadmissiondx']
+cat_columns = ['Eyes', 'GCS Total', 'ethnicity', 'gender', 'Verbal', 'Motor', 'apacheadmissiondx']
 enc = TargetEncoder()
 
 # Transform the datasets
-enc.fit(X_train, y_train, cat_columns) 
+enc.fit(X_train, y_train, cat_columns)
 X_train_enc = enc.transform(X_train)
 X_test_enc = enc.transform(X_test)
 
@@ -85,10 +89,10 @@ X_train_s = torch.tensor(X_train_s, dtype=torch.float32)
 X_train_s_tensor = torch.Tensor(X_train_s).reshape(X_train_s.shape[0], X_train_s.shape[1], 1)
 y_train_tensor = torch.tensor(y_train.reshape(y_train.shape[0], 1))
 
-train_tensor = torch.utils.data.TensorDataset(X_train_s_tensor, y_train_tensor) 
+train_tensor = torch.utils.data.TensorDataset(X_train_s_tensor, y_train_tensor)
 train_loader = torch.utils.data.DataLoader(train_tensor, batch_size=batch_size, shuffle=True)
 
-test_tensor = torch.utils.data.TensorDataset(X_test_s_tensor, y_test_tensor) 
+test_tensor = torch.utils.data.TensorDataset(X_test_s_tensor, y_test_tensor)
 test_loader = torch.utils.data.DataLoader(test_tensor, batch_size=batch_size, shuffle=False)
 
 print("Successful")
@@ -98,17 +102,17 @@ if args.use_cuda:
     model = model.cuda()
     model.tensors_to_cuda()
 
-with progressbar.ProgressBar(max_value = 1000000, widgets=widgets) as bar:
+with progressbar.ProgressBar(max_value=1000000, widgets=widgets) as bar:
     y_trues = []
     y_preds = []
     for i, (xs, ys) in enumerate(test_loader):
-        y_trues.extend([y.squeeze().cpu().detach().numpy() for y in ys]) 
+        y_trues.extend([y.squeeze().cpu().detach().numpy() for y in ys])
         x = xs
         y = ys
         y = y.cuda()
         x = x.cuda()
-        print("y_shape is :" ,y.shape)
-        print("x_shape is :" ,x.shape)
+        print("y_shape is :", y.shape)
+        print("x_shape is :", x.shape)
         y_hat = model.forward(x, mode='test')
         y_preds.append(y_hat.squeeze().cpu().detach().numpy())
 

@@ -1,7 +1,8 @@
 import torch
 import numpy as np
-from rnn_utils import *
+from nn_utils import DataGenerator
 import os
+import pickle as pkl
 from scipy.io import savemat
 from sklearn.metrics import r2_score
 import argparse
@@ -37,13 +38,13 @@ if args.use_cuda:
     model = model.cuda()
     model.tensors_to_cuda()
 
-with progressbar.ProgressBar(max_value = data_generator.steps_per_epoch, widgets=widgets) as bar:
+with progressbar.ProgressBar(max_value=data_generator.steps_per_epoch, widgets=widgets) as bar:
     y_trues = []
     y_preds = []
     for i in range(data_generator.steps_per_epoch):
         xs, ys = data_generator.next()
-        y_trues.extend([y.squeeze().cpu().detach().numpy() for y in ys]) 
-        for x,y in zip(xs, ys):
+        y_trues.extend([y.squeeze().cpu().detach().numpy() for y in ys])
+        for x, y in zip(xs, ys):
             if args.reverse_input:
                 if 'RETAIN' != model.__class__.__name__[:len('RETAIN')]:
                     x = torch.flip(x, (1,))
@@ -68,4 +69,5 @@ print("MAE: {}".format(mae))
 print("RMSE: {}".format(rmse))
 print("R2 score: {}".format(r2))
 
-savemat(os.path.join('results', model.__class__.__name__ + ('_reversed' if args.reverse_input else '') + ('_' + args.tag if len(args.tag) else '') + '_results.mat'), {'y_trues': y_trues, 'y_preds': y_preds, 'mae': mae, 'rmse': rmse, 'r2_score': r2})
+savemat(os.path.join('results', model.__class__.__name__ + ('_reversed' if args.reverse_input else '') + ('_' + args.tag if len(args.tag) else '') + '_results.mat'),
+        {'y_trues': y_trues, 'y_preds': y_preds, 'mae': mae, 'rmse': rmse, 'r2_score': r2})
