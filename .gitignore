@@ -1,3 +1,9 @@
+# Ignore data files
+data/
+
+# Ignore VSCode files
+.vscode/
+
 # Ignore temp directory
 temp/
 
@@ -9,6 +15,7 @@ models/
 
 # Ignore pycache
 __pycache__/
+
 
 ## Ignore VIM files. From Github's vim.gitignore
 # Swap
