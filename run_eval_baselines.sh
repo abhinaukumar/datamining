@@ -3,11 +3,11 @@
 MODELS=(
     'RIDGE'
     'LASSO'
+    'DT'
     'SVR'
     'RFR'
     'XGB'
     'LGBM'
-    'XGB'
 )
 PATH='data/eicu_features.csv'
 
@@ -18,7 +18,7 @@ do
     cmd+=" --dataset_path ${PATH}"
     cmd+=" --model ${m}"
     cmd+=" --log_file ${log_file}"
-
+    cmd+=" --n_jobs 1"
     echo "${cmd}"
     eval ${cmd}
 done
