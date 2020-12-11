@@ -62,13 +62,12 @@ The arguments shown in square brackets are optional. `no_cuda` runs code on the 
 The name of the model to train must be one of
 1. cnn_k1 - CNN with kernel size = 1
 2. cnn_k3 - CNN with kernel size = 3
-3. cnn_k3e - CNN with kernel size = 1
-4. cnn_k15 - CNN with kernel size = 15
-5. cnn_kvar - CNN with variable kernel size
-6. lstm - RNN (LSTM) model
-7. retain - RETAIN model
-8. bilstm - Bidirectional RNN (LSTM) model
-9. biretain - Bidirectional RETAIN model
+3. cnn_k15 - CNN with kernel size = 15
+4. cnn_kvar - CNN with variable kernel size
+5. lstm - RNN (LSTM) model
+6. retain - RETAIN model
+7. bilstm - Bidirectional RNN (LSTM) model
+8. biretain - Bidirectional RETAIN model
 
 ## Training and Testing Federated Learning Models
 ```
