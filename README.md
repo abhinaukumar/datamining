@@ -1,6 +1,6 @@
 # Data Mining - Analyzing Model Tradeoffs in Predicting Length of Stay (LOS) in eICU Patients
 
-A detailed explanation of our experiments and results can be found in [this](abhinaukumar.github.io/post/eicu-tradeoffs) blog entry. In this README file, we include instructions on how to run the code.
+A detailed explanation of our experiments and results can be found in [this](https://abhinaukumar.github.io/post/eicu-tradeoffs) blog entry. In this README file, we include instructions on how to run the code.
 
 ## Preprocessing the Data
 ```
