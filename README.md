@@ -50,11 +50,11 @@ Note that the MLPs are implemented using pointwise convolutions to effectively r
 
 ## Training and Testing CNNs and RNNs
 ```
-python3 train_rnn.py --path path-to-database --model name-of-model-to-train [--epochs number-of-training-epochs] [--lr learning-rate] [--no_cuda] [--reverse_input]
+python3 train_nn.py --path path-to-database --model name-of-model-to-train [--epochs number-of-training-epochs] [--lr learning-rate] [--no_cuda] [--reverse_input]
 ```
 
 ```
-python3 test_rnn.py --path path-to-database --model_path path-to-trained-model [--no_cuda] [--reverse_input] [--tag tag-to-add-to-results-filename]
+python3 test_nn.py --path path-to-database --model_path path-to-trained-model [--no_cuda] [--reverse_input] [--tag tag-to-add-to-results-filename]
 ```
 
 The arguments shown in square brackets are optional. `no_cuda` runs code on the CPU, while omitting the flag will default to using CUDA. `reverse_input` reverses the order of records when feeding examples to the model. This flag is only relevant when using RNNs.
@@ -74,4 +74,4 @@ The name of the model to train must be one of
 ```
 python3 federated_learning.py [--epochs number-of-training-epochs] [--lr learning-rate] [--no_cuda] [--reverse_input]
 ```
-The optional flags here serve the same functions as in the case of `train_rnn.py`.
+The optional flags here serve the same functions as in the case of `train_nn.py`.
