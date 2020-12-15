@@ -1,6 +1,6 @@
 # Data Mining - Analyzing Model Tradeoffs in Predicting Length of Stay (LOS) in eICU Patients
 
-A detailed explanation of our experiments and results can be found in [this](https://abhinaukumar.github.io/post/eicu-tradeoffs) blog entry. In this README file, we include instructions on how to run the code.
+A detailed explanation of our experiments and results can be found in [this blog entry](https://abhinaukumar.github.io/post/eicu-tradeoffs). In this README file, we include instructions on how to run the code.
 
 ## Preprocessing the Data
 ```
@@ -50,11 +50,11 @@ Note that the MLPs are implemented using pointwise convolutions to effectively r
 
 ## Training and Testing CNNs and RNNs
 ```
-python3 train_rnn.py --path path-to-database --model name-of-model-to-train [--epochs number-of-training-epochs] [--lr learning-rate] [--no_cuda] [--reverse_input]
+python3 train_nn.py --path path-to-database --model name-of-model-to-train [--epochs number-of-training-epochs] [--lr learning-rate] [--no_cuda] [--reverse_input]
 ```
 
 ```
-python3 test_rnn.py --path path-to-database --model_path path-to-trained-model [--no_cuda] [--reverse_input] [--tag tag-to-add-to-results-filename]
+python3 test_nn.py --path path-to-database --model_path path-to-trained-model [--no_cuda] [--reverse_input] [--tag tag-to-add-to-results-filename]
 ```
 
 The arguments shown in square brackets are optional. `no_cuda` runs code on the CPU, while omitting the flag will default to using CUDA. `reverse_input` reverses the order of records when feeding examples to the model. This flag is only relevant when using RNNs.
@@ -62,16 +62,15 @@ The arguments shown in square brackets are optional. `no_cuda` runs code on the 
 The name of the model to train must be one of
 1. cnn_k1 - CNN with kernel size = 1
 2. cnn_k3 - CNN with kernel size = 3
-3. cnn_k3e - CNN with kernel size = 1
-4. cnn_k15 - CNN with kernel size = 15
-5. cnn_kvar - CNN with variable kernel size
-6. lstm - RNN (LSTM) model
-7. retain - RETAIN model
-8. bilstm - Bidirectional RNN (LSTM) model
-9. biretain - Bidirectional RETAIN model
+3. cnn_k15 - CNN with kernel size = 15
+4. cnn_kvar - CNN with variable kernel size
+5. lstm - RNN (LSTM) model
+6. retain - RETAIN model
+7. bilstm - Bidirectional RNN (LSTM) model
+8. biretain - Bidirectional RETAIN model
 
 ## Training and Testing Federated Learning Models
 ```
 python3 federated_learning.py [--epochs number-of-training-epochs] [--lr learning-rate] [--no_cuda] [--reverse_input]
 ```
-The optional flags here serve the same functions as in the case of `train_rnn.py`.
+The optional flags here serve the same functions as in the case of `train_nn.py`.
